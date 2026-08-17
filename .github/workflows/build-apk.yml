@@ -19,29 +19,26 @@ jobs:
 
       - name: Check signing secrets configured
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
-            echo "::error::未配置签名 Secrets！请在仓库 Settings → Secrets and variables → Actions 中添加 4 个 Secret：KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD，然后重新运行本工作流。"
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::未配置签名 Secrets！请在仓库 Settings → Secrets and variables → Actions 中添加：KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD（KEYSTORE_PASSWORD 和 KEY_PASSWORD 填 AutoBook2026SecureKey01，KEY_ALIAS 填 release），然后重新运行本工作流。"
             exit 1
           fi
           echo "signing secrets ok"
 
-      - name: Decode signing keystore
+      - name: Decrypt signing keystore
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          # 只保留 base64 字符（自动修复复制时混入的空白/中文/标点）
-          echo "$KEYSTORE_BASE64" | tr -cd 'A-Za-z0-9+/=' | base64 -d > keystore.p12 2>/dev/null
-          SIZE=$(stat -c%s keystore.p12 2>/dev/null || echo 0)
-          echo "keystore size: $SIZE bytes"
-          SHA=$(sha256sum keystore.p12 2>/dev/null | cut -d' ' -f1)
+          # keystore.enc 已提交到仓库（AES-256-CBC + PBKDF2 加密，密码在 Secret 中）
+          openssl enc -d -aes-256-cbc -pbkdf2 -pass pass:"$KEYSTORE_PASSWORD" -in signing/keystore.enc -out keystore.p12
+          SHA=$(sha256sum keystore.p12 | cut -d' ' -f1)
           echo "sha256: $SHA"
           if [ "$SHA" != "bd870eef81f0a03270a9e9a199ec2e2d0e80d179e0f1da73fddb7265a59c873f" ]; then
-            echo "::error::keystore 校验不匹配！KEYSTORE_BASE64 的值不正确。请打开桌面的 SECRETS_GUIDE.txt，只复制【值 1】那一整行（由字母、数字、+、/、= 组成，不含任何其他字符），然后在仓库 Settings -> Secrets and variables -> Actions 里删除旧的 KEYSTORE_BASE64，重新添加后再次运行本工作流。"
+            echo "::error::keystore 解密校验失败！请确认仓库 Secret KEYSTORE_PASSWORD 的值是 AutoBook2026SecureKey01（Settings → Secrets and variables → Actions），然后重新运行本工作流。"
             exit 1
           fi
           echo "keystore verified OK"
