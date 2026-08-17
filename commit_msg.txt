@@ -1,0 +1,9 @@
+feat: 自动记账 App 项目骨架
+
+- 设计文档 docs/superpowers/specs/2026-08-18-auto-bookkeeping-design.md
+- Gradle 配置（AGP 8.7.3 / Kotlin 2.0.21 / Compose BOM / Room / Hilt）
+- 纯 Kotlin 领域层：通知解析、微信/支付宝 CSV 解析、去重、分类引擎
+- 数据层：Room + Repository + DeepSeek AI 客户端 + 加密设置存储
+- UI：Compose 引导页/明细/统计/设置
+- 6 个领域层单元测试
+- GitHub Actions 云端编译（签名 + 校验 + Release）
