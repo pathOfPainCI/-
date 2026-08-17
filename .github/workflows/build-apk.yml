@@ -47,7 +47,8 @@ jobs:
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          ALIAS=$(keytool -list -keystore keystore.p12 -storetype PKCS12 -storepass "$KEYSTORE_PASSWORD" 2>/dev/null | grep -oP 'alias name: \K\S+' | head -1)
+          # JDK 9+ 输出格式：alias, 日期, PrivateKeyEntry,
+          ALIAS=$(keytool -list -keystore keystore.p12 -storetype PKCS12 -storepass "$KEYSTORE_PASSWORD" 2>/dev/null | grep 'PrivateKeyEntry' | head -1 | sed 's/,.*//' | tr -d ' ')
           if [ -z "$ALIAS" ]; then
             echo "::error::无法读取 keystore 别名。请确认 Secret KEYSTORE_PASSWORD 的值是 AutoBook2026SecureKey01。"
             exit 1
