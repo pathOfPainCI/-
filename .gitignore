@@ -9,4 +9,6 @@ captures/
 .cxx/
 *.jks
 *.keystore
+*.p12
+SECRETS_GUIDE.txt
 !keystore.example.md

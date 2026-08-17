@@ -20,7 +20,7 @@ jobs:
       - name: Decode signing keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: echo "$KEYSTORE_BASE64" | base64 -d > keystore.jks
+        run: echo "$KEYSTORE_BASE64" | base64 -d > keystore.p12
 
       # 仓库不含 gradle wrapper（离线环境无法生成二进制 jar），
       # 用 setup-gradle 提供的 gradle 命令直接构建。
@@ -30,7 +30,8 @@ jobs:
 
       - name: Run unit tests (domain layer)
         env:
-          KEYSTORE_FILE: keystore.jks
+          KEYSTORE_FILE: keystore.p12
+          KEYSTORE_TYPE: PKCS12
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -38,7 +39,8 @@ jobs:
 
       - name: Build release APK
         env:
-          KEYSTORE_FILE: keystore.jks
+          KEYSTORE_FILE: keystore.p12
+          KEYSTORE_TYPE: PKCS12
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}

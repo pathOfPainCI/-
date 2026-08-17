@@ -12,17 +12,25 @@
 
 | Secret | 值 |
 |---|---|
-| `KEYSTORE_BASE64` | keystore.jks 的 base64 |
+| `KEYSTORE_BASE64` | keystore.p12 的 base64 |
 | `KEYSTORE_PASSWORD` | keystore 密码 |
 | `KEY_ALIAS` | 别名（建议 `release`） |
 | `KEY_PASSWORD` | 别名密码 |
 
-本地生成 keystore：
+生成 keystore（两种方式任选，仓库默认 PKCS12 格式）：
 
 ```bash
-keytool -genkeypair -v -keystore keystore.jks -alias release -keyalg RSA -keysize 2048 -validity 10950
-# Windows base64:
-certutil -encode keystore.jks keystore.b64   # 去掉首尾 ----BEGIN/END---- 行
+# 方式一：有 JDK
+keytool -genkeypair -v -keystore keystore.p12 -storetype PKCS12 -alias release -keyalg RSA -keysize 2048 -validity 10950
+# 方式二：无 JDK（Git for Windows 自带 openssl）
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 10950 -nodes -subj "/CN=AutoBook"
+openssl pkcs12 -export -out keystore.p12 -inkey key.pem -in cert.pem -passout pass:你的密码 -name release
+```
+
+Windows base64 编码（PowerShell）：
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\keystore.p12"))
 ```
 
 ⚠️ keystore 一旦发布，升级安装依赖同一签名；**务必备份 keystore 文件**，丢失则无法覆盖升级。

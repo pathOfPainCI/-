@@ -19,11 +19,12 @@ android {
         versionName = "0.1.0"
     }
 
-    // 签名密钥从环境变量读取：CI 由 Secrets 注入；本地构建时手动设置同名变量，
-    // 或把 keystore.jks 放到仓库根并省略 KEYSTORE_FILE。
+    // 签名密钥从环境变量读取：CI 由 Secrets 注入；本地构建时手动设置同名变量。
+    // 默认 keystore.p12（PKCS12）：无 JDK 环境可用 openssl 或 .NET 生成（见 README）。
     signingConfigs {
         create("release") {
-            storeFile = rootProject.file(System.getenv("KEYSTORE_FILE") ?: "keystore.jks")
+            storeFile = rootProject.file(System.getenv("KEYSTORE_FILE") ?: "keystore.p12")
+            storeType = System.getenv("KEYSTORE_TYPE") ?: "PKCS12"
             storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
             keyAlias = System.getenv("KEY_ALIAS") ?: ""
             keyPassword = System.getenv("KEY_PASSWORD") ?: ""
