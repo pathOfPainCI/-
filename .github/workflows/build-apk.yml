@@ -43,6 +43,18 @@ jobs:
           fi
           echo "keystore verified OK"
 
+      - name: Detect keystore alias
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ALIAS=$(keytool -list -keystore keystore.p12 -storetype PKCS12 -storepass "$KEYSTORE_PASSWORD" 2>/dev/null | grep -oP 'alias name: \K\S+' | head -1)
+          if [ -z "$ALIAS" ]; then
+            echo "::error::无法读取 keystore 别名。请确认 Secret KEYSTORE_PASSWORD 的值是 AutoBook2026SecureKey01。"
+            exit 1
+          fi
+          echo "detected alias: $ALIAS"
+          echo "KEY_ALIAS=$ALIAS" >> "$GITHUB_ENV"
+
       # 仓库不含 gradle wrapper（离线环境无法生成二进制 jar），
       # 用 setup-gradle 提供的 gradle 命令直接构建。
       - uses: gradle/actions/setup-gradle@v4
@@ -54,7 +66,7 @@ jobs:
           KEYSTORE_FILE: keystore.p12
           KEYSTORE_TYPE: PKCS12
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle :app:testDebugUnitTest
 
@@ -63,7 +75,7 @@ jobs:
           KEYSTORE_FILE: keystore.p12
           KEYSTORE_TYPE: PKCS12
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle :app:assembleRelease
 
