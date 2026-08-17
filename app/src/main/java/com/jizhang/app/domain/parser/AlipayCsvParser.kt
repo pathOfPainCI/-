@@ -73,8 +73,16 @@ object AlipayCsvParser {
                 continue
             }
 
-            val timeMs = CsvUtil.parseDateTime(timeStr) ?: run { skipped++; continue }
-            val amountCents = CsvUtil.parseAmountCents(f.getOrNull(iAmount).orEmpty()) ?: run { skipped++; continue }
+            val timeMs = CsvUtil.parseDateTime(timeStr)
+            if (timeMs == null) {
+                skipped++
+                continue
+            }
+            val amountCents = CsvUtil.parseAmountCents(f.getOrNull(iAmount).orEmpty())
+            if (amountCents == null) {
+                skipped++
+                continue
+            }
 
             val kind = iKind?.let { f.getOrNull(it)?.trim() }.orEmpty()
             val type = when {

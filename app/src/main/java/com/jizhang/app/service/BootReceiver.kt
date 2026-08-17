@@ -1,6 +1,7 @@
 package com.jizhang.app.service
 
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.service.notification.NotificationListenerService
@@ -11,7 +12,10 @@ class BootReceiver : BroadcastReceiver() {
         when (intent.action) {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
-            -> NotificationListenerService.requestRebind(context)
+            -> {
+                val component = ComponentName(context, NotificationMonitorService::class.java)
+                NotificationListenerService.requestRebind(component)
+            }
         }
     }
 }

@@ -71,8 +71,16 @@ object WechatCsvParser {
                 continue
             }
 
-            val timeMs = CsvUtil.parseDateTime(timeStr) ?: run { skipped++; continue }
-            val amountCents = CsvUtil.parseAmountCents(f.getOrNull(iAmount).orEmpty()) ?: run { skipped++; continue }
+            val timeMs = CsvUtil.parseDateTime(timeStr)
+            if (timeMs == null) {
+                skipped++
+                continue
+            }
+            val amountCents = CsvUtil.parseAmountCents(f.getOrNull(iAmount).orEmpty())
+            if (amountCents == null) {
+                skipped++
+                continue
+            }
 
             val type = when (f.getOrNull(iDir)?.trim()) {
                 "收入" -> TransactionType.INCOME
