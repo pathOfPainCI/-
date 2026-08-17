@@ -56,8 +56,7 @@ class WechatCsvParserTest {
 
     @Test
     fun missingHeaderReturnsError() {
-        val r = WechatCsvParser.parse("随便几行
-没有表头")
+        val r = WechatCsvParser.parse("随便几行\n没有表头")
         assertTrue(r.error != null)
         assertTrue(r.transactions.isEmpty())
     }
