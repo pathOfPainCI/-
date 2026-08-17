@@ -1,6 +1,7 @@
 package com.jizhang.app.service
 
 import android.app.Notification
+import android.content.ComponentName
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.jizhang.app.data.repo.TransactionRepository
@@ -46,7 +47,7 @@ class NotificationMonitorService : NotificationListenerService() {
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         // 国产 ROM 杀后台导致系统解绑：申请重绑（文档 §8/§10 第二层应对）
-        requestRebind(componentName)
+        requestRebind(ComponentName(this, NotificationMonitorService::class.java))
     }
 
     /** 合并通知全部文本字段（金额/商户常散落在不同字段） */
