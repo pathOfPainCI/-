@@ -28,12 +28,8 @@ object AlipayCsvParser {
     )
 
     fun parse(csv: String): CsvParseResult {
-        val lines = csv.replace("
-", "
-").replace('', '
-')
-            .split("
-")
+        val lines = csv.replace("\r\n", "\n").replace('\r', '\n')
+            .split("\n")
             .filter { it.isNotBlank() && !it.trimStart().startsWith("#") }
 
         val headerIdx = lines.indexOfFirst { line ->

@@ -75,7 +75,6 @@ class NotificationMonitorService : NotificationListenerService() {
             // 忽略：个别 ROM 该字段类型异常
         }
 
-        return parts.joinToString("
-").takeIf { it.isNotBlank() }
+        return parts.joinToString("\n").takeIf { it.isNotBlank() }
     }
 }

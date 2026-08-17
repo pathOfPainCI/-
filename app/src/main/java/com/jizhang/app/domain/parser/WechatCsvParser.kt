@@ -27,12 +27,8 @@ object WechatCsvParser {
     )
 
     fun parse(csv: String): CsvParseResult {
-        val lines = csv.replace("
-", "
-").replace('', '
-')
-            .split("
-")
+        val lines = csv.replace("\r\n", "\n").replace('\r', '\n')
+            .split("\n")
             .filter { it.isNotBlank() }
 
         val headerIdx = lines.indexOfFirst { line ->
