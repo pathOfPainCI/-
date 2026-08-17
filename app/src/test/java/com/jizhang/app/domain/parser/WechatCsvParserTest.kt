@@ -65,7 +65,7 @@ class WechatCsvParserTest {
     fun thousandsSeparatorParsed() {
         val csvBig = """
             交易时间,交易类型,交易对方,商品,收/支,金额(元),支付方式,当前状态,交易单号
-            2026-02-01 10:00:00,商户消费,大额店,电脑,支出,¥1,200.50,银行卡,支付成功,20260201100000006
+            2026-02-01 10:00:00,商户消费,大额店,电脑,支出,"¥1,200.50",银行卡,支付成功,20260201100000006
         """.trimIndent()
         val r = WechatCsvParser.parse(csvBig)
         assertEquals(120050L, r.transactions[0].amountCents)

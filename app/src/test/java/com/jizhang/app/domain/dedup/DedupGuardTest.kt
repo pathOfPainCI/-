@@ -16,8 +16,9 @@ class DedupGuardTest {
 
     @Test
     fun beyondWindowDifferentKey() {
+        // 差 10 秒 > 5 秒窗口
         val k1 = DedupGuard.notificationKey("com.tencent.mm", 1_700_000_000_000L, 1500L, "瑞幸咖啡")
-        val k2 = DedupGuard.notificationKey("com.tencent.mm", 1_700_000_000_006L, 1500L, "瑞幸咖啡")
+        val k2 = DedupGuard.notificationKey("com.tencent.mm", 1_700_000_010_000L, 1500L, "瑞幸咖啡")
         assertNotEquals(k1, k2)
     }
 
@@ -40,7 +41,8 @@ class DedupGuardTest {
         val a = DedupGuard.csvKey(TransactionSource.WECHAT_CSV, null, 1000L, 1500L, "瑞幸咖啡")
         val b = DedupGuard.csvKey(TransactionSource.WECHAT_CSV, null, 1000L, 1500L, "瑞幸咖啡")
         assertEquals(a, b)
-        val c = DedupGuard.csvKey(TransactionSource.WECHAT_CSV, null, 2000L, 1500L, "瑞幸咖啡")
+        // 差 61 秒 > 60 秒窗口
+        val c = DedupGuard.csvKey(TransactionSource.WECHAT_CSV, null, 61_000L, 1500L, "瑞幸咖啡")
         assertNotEquals(a, c)
     }
 

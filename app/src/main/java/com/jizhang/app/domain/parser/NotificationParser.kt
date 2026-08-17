@@ -29,9 +29,9 @@ data class NotificationParseResult(
 object NotificationParser {
 
     // 金额提取三级降级
-    private val AMOUNT_YUAN_PREFIX = Regex("""[¥￥]s*(d+(?:.d{1,2})?)""")
-    private val AMOUNT_YUAN_SUFFIX = Regex("""(d+(?:.d{1,2})?)s*元""")
-    private val AMOUNT_CONTEXT = Regex("""(?:金额|收款|付款|转账|红包|到账|成功)[：:s]*(d+.?d*)""")
+    private val AMOUNT_YUAN_PREFIX = Regex("""[¥￥]\s*(\d+(?:\.\d{1,2})?)""")
+    private val AMOUNT_YUAN_SUFFIX = Regex("""(\d+(?:\.\d{1,2})?)\s*元""")
+    private val AMOUNT_CONTEXT = Regex("""(?:金额|收款|付款|转账|红包|到账|成功)[：:\s]*(\d+\.?\d*)""")
 
     private val INCOME_WORDS = listOf("收款", "到账", "已收钱", "收到", "转入", "退回", "退款到账", "收益到账")
     private val EXPENSE_WORDS = listOf("已支付", "支付成功", "付款", "消费", "转出", "扣费", "支出")
@@ -98,7 +98,7 @@ object NotificationParser {
 
     /** "向/在/至/给 XX 付款/支付/转账/消费/收款/购买" */
     fun extractMerchant(text: String): String? {
-        val m = Regex("""(?:向|在|至|给)([^，。,.、s:：]{1,24}?)(?:付款|支付|转账|消费|收款|购买)""").find(text)
+        val m = Regex("""(?:向|在|至|给)([^，。,.、\s:：]{1,24}?)(?:付款|支付|转账|消费|收款|购买)""").find(text)
             ?: return null
         return m.groupValues[1].trim().takeIf { it.isNotBlank() }
     }
