@@ -102,6 +102,13 @@ object CsvFormatDetector {
         if (csv == CsvFileReader.WRONG_PASSWORD_MARKER) {
             return CsvParseResult(emptyList(), 0, "解压密码不正确，请重新输入")
         }
+        // 支付宝「记账本」导出（非交易账单）
+        if (csv.contains("记录时间") && csv.contains("收支类型")) {
+            return CsvParseResult(
+                emptyList(), 0,
+                "这是支付宝「记账本」的导出文件，不是交易账单。\n请用支付宝这样导出：我的 → 账单 → 右上角「...」→ 开具交易流水证明 → 选「用于个人对账」→ 发送到邮箱 → 解压得到 CSV 后再导入",
+            )
+        }
         return when {
             csv.contains("微信支付账单明细") -> WechatCsvParser.parse(csv)
             csv.contains("支付宝交易记录明细查询") -> AlipayCsvParser.parse(csv)
