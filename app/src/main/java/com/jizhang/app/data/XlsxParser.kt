@@ -72,11 +72,15 @@ object XlsxParser {
                         if (raw.size < 12) continue
                         dec.decrypt(raw, 0, 12) // 12 字节加密头
                         val plainData = dec.decrypt(raw, 12, raw.size - 12)
-                        // CRC 校验：密码错误时解出的数据 CRC 不匹配
-                        if (crc32Of(plainData) != crc) {
+                        // 先解压，再校验 CRC（zip 的 CRC 是解压后数据的）
+                        val content = try {
+                            if (method == 8) inflateRaw(plainData) else plainData
+                        } catch (e: Exception) {
                             throw ZipPasswordException("解压密码不正确")
                         }
-                        val content = if (method == 8) inflateRaw(plainData) else plainData
+                        if (crc32Of(content) != crc) {
+                            throw ZipPasswordException("解压密码不正确")
+                        }
                         result.add(ZipEntry(name, content))
                     } else {
                         val content = if (method == 8) inflateRaw(raw) else raw
