@@ -55,6 +55,18 @@ class WechatCsvParserTest {
     }
 
     @Test
+    fun refundRowBecomesRefund() {
+        val csvRefund = """
+            交易时间,交易类型,交易对方,商品,收/支,金额(元),支付方式,当前状态,交易单号
+            2026-01-18 10:00:00,退款,瑞幸咖啡,,收入,¥15.00,零钱,已退款,20260118100000007
+        """.trimIndent()
+        val r = WechatCsvParser.parse(csvRefund)
+        assertEquals(1, r.transactions.size)
+        assertEquals(TransactionType.REFUND, r.transactions[0].type)
+        assertEquals(1500L, r.transactions[0].amountCents)
+    }
+
+    @Test
     fun missingHeaderReturnsError() {
         val r = WechatCsvParser.parse("随便几行\n没有表头")
         assertTrue(r.error != null)

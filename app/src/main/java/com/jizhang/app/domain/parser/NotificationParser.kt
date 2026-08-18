@@ -10,14 +10,16 @@ data class NotificationParseResult(
     val direction: Direction,    // UNKNOWN = 方向无法判定
     val merchant: String?,
     val reason: String?,         // 解析不完整的原因（needsReview 提示用）
+    val refund: Boolean = false, // 退款到账（收入语义、冲抵支出）
 ) {
     val needsReview: Boolean get() = amountCents == null || direction == Direction.UNKNOWN
 
     val type: TransactionType
-        get() = when (direction) {
-            Direction.INCOME -> TransactionType.INCOME
-            Direction.EXPENSE -> TransactionType.EXPENSE
-            Direction.UNKNOWN -> TransactionType.NEUTRAL
+        get() = when {
+            refund && direction == Direction.INCOME -> TransactionType.REFUND
+            direction == Direction.INCOME -> TransactionType.INCOME
+            direction == Direction.EXPENSE -> TransactionType.EXPENSE
+            else -> TransactionType.NEUTRAL
         }
 }
 
@@ -61,12 +63,15 @@ object NotificationParser {
         // 4. 商户（尽力而为，失败不影响入库）
         val merchant = extractMerchant(text)
 
+        // 5. 退款标记（退款到账/退回）
+        val refund = text.contains("退款") || text.contains("退回")
+
         val reason = when {
             amountCents == null -> "金额解析失败"
             direction == Direction.UNKNOWN -> "收支方向无法判定"
             else -> null
         }
-        return NotificationParseResult(amountCents, direction, merchant, reason)
+        return NotificationParseResult(amountCents, direction, merchant, reason, refund)
     }
 
     fun detectDirection(text: String): Direction {

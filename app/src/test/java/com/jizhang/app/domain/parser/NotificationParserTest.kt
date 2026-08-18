@@ -1,5 +1,6 @@
 package com.jizhang.app.domain.parser
 
+import com.jizhang.app.domain.model.TransactionType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -93,6 +94,14 @@ class NotificationParserTest {
         val r = NotificationParser.parse("零钱通收益到账 ¥0.35")
         assertEquals(35L, r.amountCents)
         assertEquals(Direction.INCOME, r.direction)
+    }
+
+    @Test
+    fun refundNotificationIsRefund() {
+        val r = NotificationParser.parse("微信支付 退款到账 ¥15.00")
+        assertEquals(1500L, r.amountCents)
+        assertEquals(Direction.INCOME, r.direction)
+        assertEquals(TransactionType.REFUND, r.type)
     }
 
     // ---- 噪声/失败 ----

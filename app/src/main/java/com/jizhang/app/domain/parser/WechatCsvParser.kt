@@ -45,6 +45,7 @@ object WechatCsvParser {
         val iAmount = col["amount"] ?: return CsvParseResult(emptyList(), 0, "缺少「金额(元)」列")
         val iDir = col["direction"] ?: return CsvParseResult(emptyList(), 0, "缺少「收/支」列")
         val iStatus = col["status"]
+        val iKind = col["kind"]
         val iMerchant = col["merchant"]
         val iOrderId = col["orderId"]
         val iNote = col["note"]
@@ -64,9 +65,9 @@ object WechatCsvParser {
                 continue
             }
 
-            // 状态过滤：仅成功交易入账
+            // 状态过滤：仅失败交易跳过（退款行要保留并标记 REFUND）
             val status = iStatus?.let { f.getOrNull(it)?.trim() }
-            if (status != null && (status.contains("失败") || status.contains("退款"))) {
+            if (status != null && status.contains("失败")) {
                 skipped++
                 continue
             }
@@ -82,9 +83,12 @@ object WechatCsvParser {
                 continue
             }
 
-            val type = when (f.getOrNull(iDir)?.trim()) {
-                "收入" -> TransactionType.INCOME
-                "支出" -> TransactionType.EXPENSE
+            val kind = iKind?.let { f.getOrNull(it)?.trim() }.orEmpty()
+            val type = when {
+                kind.contains("退款") || (status != null && (status.contains("已退款") || status.contains("退款成功"))) ->
+                    TransactionType.REFUND
+                f.getOrNull(iDir)?.trim() == "收入" -> TransactionType.INCOME
+                f.getOrNull(iDir)?.trim() == "支出" -> TransactionType.EXPENSE
                 else -> TransactionType.NEUTRAL // "中性交易" 及未知
             }
 

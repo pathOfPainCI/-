@@ -229,7 +229,7 @@ private fun TransactionDetailDialog(
 ) {
     val amountColor = when (t.type) {
         TransactionType.EXPENSE -> Color(0xFFD32F2F)
-        TransactionType.INCOME -> Color(0xFF2E7D32)
+        TransactionType.INCOME, TransactionType.REFUND -> Color(0xFF2E7D32)
         else -> MaterialTheme.colorScheme.outline
     }
     AlertDialog(
@@ -390,7 +390,7 @@ private fun ImportDialog(
 private fun TransactionRow(t: TransactionUi, onClick: () -> Unit) {
     val amountColor = when (t.type) {
         TransactionType.EXPENSE -> Color(0xFFD32F2F)
-        TransactionType.INCOME -> Color(0xFF2E7D32)
+        TransactionType.INCOME, TransactionType.REFUND -> Color(0xFF2E7D32)
         else -> MaterialTheme.colorScheme.outline
     }
     Row(
@@ -406,7 +406,10 @@ private fun TransactionRow(t: TransactionUi, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
             )
             Text(
-                text = listOfNotNull(t.categoryName ?: "未分类", formatTime(t.transactionTime)).joinToString(" · "),
+                text = listOfNotNull(
+                    if (t.type == TransactionType.REFUND) "退款" else t.categoryName ?: "未分类",
+                    formatTime(t.transactionTime),
+                ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -434,6 +437,13 @@ private fun formatAmount(cents: Long, type: TransactionType): String {
         else -> ""
     }
     return String.format(Locale.US, "%s¥%.2f", sign, cents / 100.0)
+}
+
+private fun typeLabel(type: TransactionType): String = when (type) {
+    TransactionType.REFUND -> "退款"
+    TransactionType.EXPENSE -> "支出"
+    TransactionType.INCOME -> "收入"
+    TransactionType.NEUTRAL -> "中性"
 }
 
 private fun formatTime(epochMs: Long): String {
