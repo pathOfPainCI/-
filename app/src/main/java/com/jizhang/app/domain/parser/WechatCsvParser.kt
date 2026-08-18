@@ -97,8 +97,8 @@ object WechatCsvParser {
                     transactionTimeMs = timeMs,
                     type = type,
                     amountCents = amountCents,
-                    merchant = iMerchant?.let { f.getOrNull(it)?.trim() }?.takeIf { it.isNotEmpty() },
-                    note = iNote?.let { f.getOrNull(it)?.trim() }?.takeIf { it.isNotEmpty() },
+                    merchant = iMerchant?.let { f.getOrNull(it)?.trim() }?.takeIf { it.isNotEmpty() && it != "/" },
+                    note = iNote?.let { f.getOrNull(it)?.trim() }?.takeIf { it.isNotEmpty() && it != "/" },
                     orderId = iOrderId?.let { f.getOrNull(it)?.trim() }?.takeIf { it.isNotEmpty() },
                     source = TransactionSource.WECHAT_CSV,
                 )
