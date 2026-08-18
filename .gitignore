@@ -12,5 +12,6 @@ captures/
 *.p12
 *.xlsx
 *.zip
+*.csv
 SECRETS_GUIDE.txt
 !keystore.example.md
