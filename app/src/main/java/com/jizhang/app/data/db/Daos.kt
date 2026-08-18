@@ -8,6 +8,9 @@ import androidx.room.Update
 import com.jizhang.app.domain.model.TransactionType
 import kotlinx.coroutines.flow.Flow
 
+/** 按分类汇总结果（统计饼图） */
+data class CategorySum(val categoryId: Long?, val total: Long)
+
 @Dao
 interface TransactionDao {
     @Insert suspend fun insert(t: TransactionEntity): Long

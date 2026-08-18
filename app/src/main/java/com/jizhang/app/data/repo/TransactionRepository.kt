@@ -3,6 +3,7 @@ package com.jizhang.app.data.repo
 import com.jizhang.app.data.SettingsStore
 import com.jizhang.app.data.ai.DeepSeekClient
 import com.jizhang.app.data.db.CategoryDao
+import com.jizhang.app.data.db.CategorySum
 import com.jizhang.app.data.db.RuleDao
 import com.jizhang.app.data.db.TransactionDao
 import com.jizhang.app.data.db.TransactionEntity
@@ -31,8 +32,6 @@ data class TransactionUi(
 )
 
 data class CsvImportResult(val inserted: Int, val merged: Int, val duplicated: Int, val error: String?)
-
-data class CategorySum(val categoryId: Long?, val total: Long)
 
 data class MonthPoint(val label: String, val expense: Long, val income: Long)
 
