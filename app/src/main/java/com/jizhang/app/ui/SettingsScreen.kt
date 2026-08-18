@@ -154,5 +154,19 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline,
         )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "版本 " + appVersion(context),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline,
+        )
+    }
+}
+
+private fun appVersion(context: Context): String {
+    return try {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
+    } catch (e: Exception) {
+        "?"
     }
 }
