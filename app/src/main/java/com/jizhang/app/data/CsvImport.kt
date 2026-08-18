@@ -15,7 +15,26 @@ import java.nio.charset.CodingErrorAction
  */
 object CsvFileReader {
 
+    /** 加密压缩包标记（支付宝账单 zip 有密码，需用户先解压） */
+    const val ENCRYPTED_ZIP_MARKER = "\u0000ENCRYPTED_ZIP"
+
+    /** 检测 zip 传统加密（本地文件头 flags bit 0） */
+    fun isEncryptedZip(bytes: ByteArray): Boolean {
+        if (bytes.size < 30) return false
+        if (bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte() &&
+            bytes[2] == 0x03 && bytes[3] == 0x04
+        ) {
+            val flags = ((bytes[7].toInt() and 0xFF) shl 8) or (bytes[6].toInt() and 0xFF)
+            return flags and 0x01 != 0
+        }
+        return false
+    }
+
     fun readAndDetect(bytes: ByteArray): String {
+        // 0) 加密压缩包（支付宝账单）→ 提示先解压
+        if (XlsxParser.isZip(bytes) && isEncryptedZip(bytes)) {
+            return ENCRYPTED_ZIP_MARKER
+        }
         // 1) zip 容器（微信原始附件：含 csv/xlsx/pdf；或 xlsx 本身）
         if (XlsxParser.isZip(bytes)) {
             val entries = XlsxParser.readZipEntries(bytes)
@@ -61,6 +80,12 @@ object CsvFileReader {
 object CsvFormatDetector {
 
     fun parseAuto(csv: String): CsvParseResult {
+        if (csv == CsvFileReader.ENCRYPTED_ZIP_MARKER) {
+            return CsvParseResult(
+                emptyList(), 0,
+                "账单压缩包已加密：请在手机文件管理里先解压（输入下载账单时设置的那个密码），得到 CSV 文件后再导入",
+            )
+        }
         return when {
             csv.contains("微信支付账单明细") -> WechatCsvParser.parse(csv)
             csv.contains("支付宝交易记录明细查询") -> AlipayCsvParser.parse(csv)
