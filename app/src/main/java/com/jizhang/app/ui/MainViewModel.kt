@@ -3,6 +3,7 @@ package com.jizhang.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jizhang.app.data.SettingsStore
+import com.jizhang.app.data.repo.StatsData
 import com.jizhang.app.data.repo.TransactionRepository
 import com.jizhang.app.data.repo.TransactionUi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -60,8 +61,8 @@ class MainViewModel @Inject constructor(
     private val _summary = MutableStateFlow<TransactionRepository.MonthSummary?>(null)
     val summary: StateFlow<TransactionRepository.MonthSummary?> = _summary.asStateFlow()
 
-    private val _stats = MutableStateFlow<TransactionRepository.StatsData?>(null)
-    val stats: StateFlow<TransactionRepository.StatsData?> = _stats.asStateFlow()
+    private val _stats = MutableStateFlow<StatsData?>(null)
+    val stats: StateFlow<StatsData?> = _stats.asStateFlow()
 
     fun setOnboarded(value: Boolean) = settings.setOnboarded(value)
 
