@@ -48,6 +48,10 @@ interface TransactionDao {
     /** 用 CSV 信息补全通知记录（商户/备注/分类），并标记为已核对 */
     @Query("UPDATE transactions SET merchant = :merchant, note = :note, categoryId = :categoryId, needsReview = 0 WHERE id = :id")
     suspend fun updateDetail(id: Long, merchant: String?, note: String?, categoryId: Long?)
+
+    /** 某时间范围内按分类汇总支出（统计饼图用） */
+    @Query("SELECT categoryId, SUM(amountCents) AS total FROM transactions WHERE type = 'EXPENSE' AND transactionTime >= :start AND transactionTime < :end GROUP BY categoryId ORDER BY total DESC")
+    suspend fun expenseByCategory(start: Long, end: Long): List<CategorySum>
 }
 
 @Dao

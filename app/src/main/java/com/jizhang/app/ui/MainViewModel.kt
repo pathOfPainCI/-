@@ -60,6 +60,9 @@ class MainViewModel @Inject constructor(
     private val _summary = MutableStateFlow<TransactionRepository.MonthSummary?>(null)
     val summary: StateFlow<TransactionRepository.MonthSummary?> = _summary.asStateFlow()
 
+    private val _stats = MutableStateFlow<TransactionRepository.StatsData?>(null)
+    val stats: StateFlow<TransactionRepository.StatsData?> = _stats.asStateFlow()
+
     fun setOnboarded(value: Boolean) = settings.setOnboarded(value)
 
     fun saveAiSettings(baseUrl: String, model: String, apiKey: String) {
@@ -127,6 +130,12 @@ class MainViewModel @Inject constructor(
 
     private fun atStart(d: LocalDate): Long =
         d.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+    fun refreshStats() {
+        viewModelScope.launch {
+            _stats.value = repository.loadStats(6)
+        }
+    }
 
     fun refreshSummary() {
         val now = java.time.LocalDateTime.now()

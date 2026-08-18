@@ -32,6 +32,17 @@ data class TransactionUi(
 
 data class CsvImportResult(val inserted: Int, val merged: Int, val duplicated: Int, val error: String?)
 
+data class CategorySum(val categoryId: Long?, val total: Long)
+
+data class MonthPoint(val label: String, val expense: Long, val income: Long)
+
+data class StatsData(
+    val expense: Long,
+    val income: Long,
+    val categorySlices: List<Pair<String, Long>>, // 分类名 to 金额（降序）
+    val trend: List<MonthPoint>,                  // 近 N 个月
+)
+
 @Singleton
 class TransactionRepository @Inject constructor(
     private val transactionDao: TransactionDao,
@@ -213,6 +224,37 @@ class TransactionRepository @Inject constructor(
                 )
             }
         }
+
+    /** 统计页数据：本月收支 + 分类占比 + 近 N 个月趋势 */
+    suspend fun loadStats(months: Int): StatsData {
+        val today = java.time.LocalDate.now()
+        val monthStart = today.withDayOfMonth(1).atStartOfDay()
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val monthEnd = today.withDayOfMonth(1).plusMonths(1).atStartOfDay()
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val expense = transactionDao.sumByType(TransactionType.EXPENSE.name, monthStart, monthEnd)
+        val income = transactionDao.sumByType(TransactionType.INCOME.name, monthStart, monthEnd)
+
+        val sums = transactionDao.expenseByCategory(monthStart, monthEnd)
+        val nameById = categoryDao.getAll().associate { it.id to it.name }
+        val slices = sums.map { (nameById[it.categoryId] ?: "未分类") to it.total }
+
+        val trend = mutableListOf<MonthPoint>()
+        for (i in months - 1 downTo 0) {
+            val d = today.withDayOfMonth(1).minusMonths(i.toLong())
+            val start = d.atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val end = d.plusMonths(1).atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            trend.add(
+                MonthPoint(
+                    label = d.monthValue.toString() + "月",
+                    expense = transactionDao.sumByType(TransactionType.EXPENSE.name, start, end),
+                    income = transactionDao.sumByType(TransactionType.INCOME.name, start, end),
+                )
+            )
+        }
+        return StatsData(expense, income, slices, trend)
+    }
 
     suspend fun monthSummary(monthStart: Long, monthEnd: Long): MonthSummary {
         return MonthSummary(
