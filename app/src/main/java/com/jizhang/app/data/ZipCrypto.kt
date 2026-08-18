@@ -48,7 +48,7 @@ class ZipCryptoDecryptor(password: ByteArray) {
             for (n in 0 until 256) {
                 var c = n
                 for (i in 0 until 8) {
-                    c = if (c and 1 != 0) (0xEDB88320 xor (c ushr 1)) else c ushr 1
+                    c = if (c and 1 != 0) (0xEDB88320.toInt() xor (c ushr 1)) else c ushr 1
                 }
                 table[n] = c
             }
