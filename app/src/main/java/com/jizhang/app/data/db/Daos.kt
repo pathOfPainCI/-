@@ -100,4 +100,11 @@ interface BudgetDao {
 
     @Query("DELETE FROM budgets WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    /** 某月总额预算（categoryId IS NULL = 总额） */
+    @Query("SELECT amountCents FROM budgets WHERE categoryId IS NULL AND month = :month LIMIT 1")
+    suspend fun getTotalBudget(month: String): Long?
+
+    @Query("DELETE FROM budgets WHERE categoryId IS NULL AND month = :month")
+    suspend fun deleteTotalBudget(month: String)
 }

@@ -177,6 +177,36 @@ fun TransactionListScreen(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
 
+        // 本月预算进度
+        val budget by viewModel.monthBudget.collectAsStateWithLifecycle()
+        val stats by viewModel.stats.collectAsStateWithLifecycle()
+        if (budget > 0L) {
+            val monthExpense = stats?.expense ?: 0L
+            val ratio = (monthExpense.toFloat() / budget).coerceIn(0f, 1f)
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { ratio },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            )
+            if (monthExpense > budget) {
+                Text(
+                    text = "本月已超支 " + formatCents(monthExpense - budget),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            } else {
+                Text(
+                    text = "本月预算 " + formatCents(budget) + "，已用 " + formatCents(monthExpense) +
+                        "（" + String.format(Locale.US, "%.0f", ratio * 100f) + "%）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+        }
+
         if (reviewCount > 0) {
             Text(
                 text = "有 $reviewCount 条记录待核对（金额/方向解析不确定）",

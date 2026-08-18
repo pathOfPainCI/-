@@ -2,6 +2,8 @@ package com.jizhang.app.data.repo
 
 import com.jizhang.app.data.SettingsStore
 import com.jizhang.app.data.ai.DeepSeekClient
+import com.jizhang.app.data.db.BudgetDao
+import com.jizhang.app.data.db.BudgetEntity
 import com.jizhang.app.data.db.CategoryDao
 import com.jizhang.app.data.db.CategorySum
 import com.jizhang.app.data.db.RuleDao
@@ -47,6 +49,7 @@ class TransactionRepository @Inject constructor(
     private val transactionDao: TransactionDao,
     private val categoryDao: CategoryDao,
     private val ruleDao: RuleDao,
+    private val budgetDao: BudgetDao,
     private val settings: SettingsStore,
 ) {
     companion object {
@@ -162,6 +165,16 @@ class TransactionRepository @Inject constructor(
         }
         return CsvImportResult(inserted, merged, duplicated, null)
     }
+
+    // ---- 预算 ----
+    suspend fun getTotalBudget(month: String): Long? = budgetDao.getTotalBudget(month)
+
+    suspend fun setTotalBudget(month: String, amountCents: Long) {
+        budgetDao.deleteTotalBudget(month)
+        budgetDao.insert(BudgetEntity(categoryId = null, amountCents = amountCents, month = month))
+    }
+
+    suspend fun clearTotalBudget(month: String) = budgetDao.deleteTotalBudget(month)
 
     // ---- 观察 ----
     fun observeTransactions(): Flow<List<TransactionUi>> =

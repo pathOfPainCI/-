@@ -64,6 +64,14 @@ class MainViewModel @Inject constructor(
     private val _stats = MutableStateFlow<StatsData?>(null)
     val stats: StateFlow<StatsData?> = _stats.asStateFlow()
 
+    private val _monthBudget = MutableStateFlow<Long>(0L)
+    val monthBudget: StateFlow<Long> = _monthBudget.asStateFlow()
+
+    init {
+        refreshStats()
+        refreshBudget()
+    }
+
     fun setOnboarded(value: Boolean) = settings.setOnboarded(value)
 
     fun saveAiSettings(baseUrl: String, model: String, apiKey: String) {
@@ -131,6 +139,33 @@ class MainViewModel @Inject constructor(
 
     private fun atStart(d: LocalDate): Long =
         d.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+    /** 当前月份 "yyyy-MM" */
+    private fun currentMonth(): String =
+        java.time.LocalDate.now().toString().substring(0, 7)
+
+    fun refreshBudget() {
+        viewModelScope.launch {
+            _monthBudget.value = repository.getTotalBudget(currentMonth()) ?: 0L
+        }
+    }
+
+    /** 设置本月总额预算（输入为元字符串，如 "500" 或 "500.5"） */
+    fun setMonthBudget(yuan: String) {
+        val cents = ((yuan.toDoubleOrNull() ?: 0.0) * 100).toLong()
+        if (cents <= 0) return
+        viewModelScope.launch {
+            repository.setTotalBudget(currentMonth(), cents)
+            _monthBudget.value = cents
+        }
+    }
+
+    fun clearMonthBudget() {
+        viewModelScope.launch {
+            repository.clearTotalBudget(currentMonth())
+            _monthBudget.value = 0L
+        }
+    }
 
     fun refreshStats() {
         viewModelScope.launch {

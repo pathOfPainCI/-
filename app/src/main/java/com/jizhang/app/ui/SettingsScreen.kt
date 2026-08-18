@@ -18,6 +18,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -141,6 +142,42 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
         }
         if (saved) {
             Text("已保存", color = MaterialTheme.colorScheme.primary)
+        }
+        Spacer(Modifier.height(16.dp))
+
+        Text("月度预算", style = MaterialTheme.typography.titleMedium)
+        var budgetInput by remember { mutableStateOf("") }
+        LaunchedEffect(viewModel.monthBudget.value) {
+            val b = viewModel.monthBudget.value
+            budgetInput = if (b > 0) String.format(java.util.Locale.US, "%.2f", b / 100.0) else ""
+        }
+        OutlinedTextField(
+            value = budgetInput,
+            onValueChange = { budgetInput = it },
+            label = { Text("本月总预算（元），0 或留空 = 不设") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        )
+        Row {
+            Button(
+                onClick = { viewModel.setMonthBudget(budgetInput) },
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text("保存预算")
+            }
+            Spacer(Modifier.padding(start = 8.dp))
+            if (viewModel.monthBudget.value > 0) {
+                OutlinedButton(
+                    onClick = {
+                        budgetInput = ""
+                        viewModel.clearMonthBudget()
+                    },
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Text("清除")
+                }
+            }
         }
         Spacer(Modifier.height(16.dp))
 
