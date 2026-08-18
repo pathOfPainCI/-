@@ -157,7 +157,7 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
             label = { Text("本月总预算（元），0 或留空 = 不设") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
         )
         Row {
             Button(

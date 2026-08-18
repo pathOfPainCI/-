@@ -24,6 +24,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -192,18 +193,6 @@ private fun TrendChart(points: List<MonthPoint>) {
             color = android.graphics.Color.GRAY
             textSize = 12f * density
         }
-        val expensePaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.rgb(0xD3, 0x2F, 0x2F)
-            style = android.graphics.Paint.Style.STROKE
-            strokeWidth = 3f * density
-            isAntiAlias = true
-        }
-        val incomePaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.rgb(0x2E, 0x7D, 0x32)
-            style = android.graphics.Paint.Style.STROKE
-            strokeWidth = 3f * density
-            isAntiAlias = true
-        }
 
         // 网格（5 条水平线）
         for (i in 0..4) {
@@ -219,14 +208,18 @@ private fun TrendChart(points: List<MonthPoint>) {
         val stepX = if (points.size > 1) w / (points.size - 1) else w
         fun yFor(v: Long): Float = h - h * 0.85f * v.toFloat() / maxVal - h * 0.08f
 
-        // 支出折线
+        // 支出折线（compose Path + drawPath）
         val expensePath = Path()
         points.forEachIndexed { i, p ->
             val x = i * stepX
             val y = yFor(p.expense)
             if (i == 0) expensePath.moveTo(x, y) else expensePath.lineTo(x, y)
         }
-        drawContext.canvas.nativeCanvas.drawPath(expensePath, expensePaint)
+        drawPath(
+            path = expensePath,
+            color = Color(0xFFD32F2F),
+            style = Stroke(width = 3f * density),
+        )
 
         // 收入折线
         val incomePath = Path()
@@ -235,7 +228,11 @@ private fun TrendChart(points: List<MonthPoint>) {
             val y = yFor(p.income)
             if (i == 0) incomePath.moveTo(x, y) else incomePath.lineTo(x, y)
         }
-        drawContext.canvas.nativeCanvas.drawPath(incomePath, incomePaint)
+        drawPath(
+            path = incomePath,
+            color = Color(0xFF2E7D32),
+            style = Stroke(width = 3f * density),
+        )
 
         // 月份标签
         points.forEachIndexed { i, p ->
