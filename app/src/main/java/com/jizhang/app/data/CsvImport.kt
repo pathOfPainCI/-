@@ -22,7 +22,7 @@ object CsvFileReader {
     fun isEncryptedZip(bytes: ByteArray): Boolean {
         if (bytes.size < 30) return false
         if (bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte() &&
-            bytes[2] == 0x03 && bytes[3] == 0x04
+            bytes[2] == 0x03.toByte() && bytes[3] == 0x04.toByte()
         ) {
             val flags = ((bytes[7].toInt() and 0xFF) shl 8) or (bytes[6].toInt() and 0xFF)
             return flags and 0x01 != 0
