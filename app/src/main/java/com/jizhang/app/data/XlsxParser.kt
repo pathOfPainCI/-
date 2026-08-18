@@ -93,8 +93,14 @@ object XlsxParser {
         return result
     }
 
-    private fun inflateRaw(data: ByteArray): ByteArray =
-        java.util.zip.InflaterInputStream(java.io.ByteArrayInputStream(data)).use { it.readBytes() }
+    private fun inflateRaw(data: ByteArray): ByteArray {
+        // zip 条目内是 raw deflate（RFC1951，无 zlib 头）→ nowrap = true
+        val inflater = java.util.zip.Inflater(true)
+        return java.util.zip.InflaterInputStream(
+            java.io.ByteArrayInputStream(data),
+            inflater,
+        ).use { it.readBytes() }
+    }
 
     /** 是否为 zip 容器（含 xlsx） */
     fun isZip(bytes: ByteArray): Boolean =
