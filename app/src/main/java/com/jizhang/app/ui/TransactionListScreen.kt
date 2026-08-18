@@ -3,16 +3,20 @@ package com.jizhang.app.ui
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -21,13 +25,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jizhang.app.data.repo.TransactionUi
+import com.jizhang.app.domain.model.TransactionSource
 import com.jizhang.app.domain.model.TransactionType
 import java.time.Instant
 import java.time.ZoneId
@@ -43,6 +53,9 @@ fun TransactionListScreen(
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val reviewCount by viewModel.needsReviewCount.collectAsStateWithLifecycle()
     val importState by importViewModel.state.collectAsStateWithLifecycle()
+
+    var selectedTx by remember { mutableStateOf<TransactionUi?>(null) }
+    val clipboard = LocalClipboardManager.current
 
     // SAF 文件选择：无需存储权限
     val fileLauncher = rememberLauncherForActivityResult(
@@ -90,10 +103,20 @@ fun TransactionListScreen(
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(transactions, key = { it.id }) { t ->
-                    TransactionRow(t)
+                    TransactionRow(t, onClick = { selectedTx = t })
                 }
             }
         }
+    }
+
+    selectedTx?.let { tx ->
+        TransactionDetailDialog(
+            t = tx,
+            onDismiss = { selectedTx = null },
+            onCopy = {
+                clipboard.setText(AnnotatedString(tx.note ?: ""))
+            },
+        )
     }
 
     ImportDialog(
@@ -101,6 +124,93 @@ fun TransactionListScreen(
         onConfirm = { importViewModel.confirmImport() },
         onDismiss = { importViewModel.dismiss() },
     )
+}
+
+@Composable
+private fun TransactionDetailDialog(
+    t: TransactionUi,
+    onDismiss: () -> Unit,
+    onCopy: () -> Unit,
+) {
+    val amountColor = when (t.type) {
+        TransactionType.EXPENSE -> Color(0xFFD32F2F)
+        TransactionType.INCOME -> Color(0xFF2E7D32)
+        else -> MaterialTheme.colorScheme.outline
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (t.needsReview) "待核对记录" else "交易详情") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Text(
+                    text = formatAmount(t.amountCents, t.type),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = amountColor,
+                )
+                Spacer(Modifier.height(8.dp))
+                DetailRow("商户", t.merchant ?: "（未识别商户）")
+                DetailRow("分类", t.categoryName ?: "未分类")
+                DetailRow("时间", formatFullTime(t.transactionTime))
+                DetailRow("来源", sourceName(t.source))
+                if (t.needsReview) {
+                    DetailRow("状态", "待核对（解析不完整）")
+                }
+                if (t.note != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "通知原文：",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                    Text(
+                        text = t.note,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+        dismissButton = {
+            if (t.note != null) {
+                TextButton(onClick = onCopy) { Text("复制原文") }
+            }
+        },
+    )
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(modifier = Modifier.padding(vertical = 2.dp)) {
+        Text(
+            text = label + "：",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.outline,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+private fun sourceName(s: TransactionSource): String = when (s) {
+    TransactionSource.WECHAT_NOTIFICATION -> "微信通知"
+    TransactionSource.ALIPAY_NOTIFICATION -> "支付宝通知"
+    TransactionSource.WECHAT_CSV -> "微信账单导入"
+    TransactionSource.ALIPAY_CSV -> "支付宝账单导入"
+    TransactionSource.MANUAL -> "手动录入"
+}
+
+private fun formatFullTime(epochMs: Long): String {
+    return Instant.ofEpochMilli(epochMs)
+        .atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
 }
 
 @Composable
@@ -175,7 +285,7 @@ private fun ImportDialog(
 }
 
 @Composable
-private fun TransactionRow(t: TransactionUi) {
+private fun TransactionRow(t: TransactionUi, onClick: () -> Unit) {
     val amountColor = when (t.type) {
         TransactionType.EXPENSE -> Color(0xFFD32F2F)
         TransactionType.INCOME -> Color(0xFF2E7D32)
@@ -184,6 +294,7 @@ private fun TransactionRow(t: TransactionUi) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -193,7 +304,7 @@ private fun TransactionRow(t: TransactionUi) {
                 style = MaterialTheme.typography.bodyLarge,
             )
             Text(
-                text = listOfNotNull(t.categoryName, formatTime(t.transactionTime)).joinToString(" · "),
+                text = listOfNotNull(t.categoryName ?: "未分类", formatTime(t.transactionTime)).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )

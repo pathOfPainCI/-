@@ -96,11 +96,22 @@ object NotificationParser {
         return parseAmountCents(m.groupValues[1])
     }
 
-    /** "向/在/至/给 XX 付款/支付/转账/消费/收款/购买" */
+    /** 商户提取：多格式兜底（"向XX付款" / "商户:XX" / "收款方:XX" / "来自XX"） */
     fun extractMerchant(text: String): String? {
-        val m = Regex("""(?:向|在|至|给)([^，。,.、\s:：]{1,24}?)(?:付款|支付|转账|消费|收款|购买)""").find(text)
-            ?: return null
-        return m.groupValues[1].trim().takeIf { it.isNotBlank() }
+        val patterns = listOf(
+            Regex("""(?:向|在|至|给)([^，。,.、\s:：]{1,24}?)(?:付款|支付|转账|消费|收款|购买)"""),
+            Regex("""商户(?:名称|名)?[:：]\s*([^\s，。,.、;；]{1,24})"""),
+            Regex("""(?:收款方|对方|收款人|付款方)[:：]\s*([^\s，。,.、;；]{1,24})"""),
+            Regex("""来自\s*([^\s，。,.、;；]{1,24})"""),
+        )
+        for (p in patterns) {
+            val m = p.find(text) ?: continue
+            val name = m.groupValues[1].trim()
+            if (name.isNotBlank() && name != "微信" && name != "支付宝") {
+                return name
+            }
+        }
+        return null
     }
 
     /** 字符串金额 → 分（BigDecimal，避免浮点误差） */
