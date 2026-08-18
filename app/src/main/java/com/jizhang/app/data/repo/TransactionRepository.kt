@@ -30,7 +30,7 @@ data class TransactionUi(
     val needsReview: Boolean,
 )
 
-data class CsvImportResult(val inserted: Int, val duplicated: Int, val error: String?)
+data class CsvImportResult(val inserted: Int, val merged: Int, val duplicated: Int, val error: String?)
 
 @Singleton
 class TransactionRepository @Inject constructor(
@@ -103,10 +103,31 @@ class TransactionRepository @Inject constructor(
 
     // ---- CSV 导入 ----
     suspend fun importCsv(parsed: CsvParseResult): CsvImportResult {
-        if (parsed.error != null) return CsvImportResult(0, 0, parsed.error)
+        if (parsed.error != null) return CsvImportResult(0, 0, 0, parsed.error)
         var inserted = 0
+        var merged = 0
         var duplicated = 0
+        val windowMs = 5 * 60 * 1000L // 通知与交易时间最多差 5 分钟
         for (t in parsed.transactions) {
+            // 1) 与通知自动记账的同一笔合并：同来源、同金额、同类型、±5 分钟内
+            if (t.source == TransactionSource.WECHAT_CSV || t.source == TransactionSource.ALIPAY_CSV) {
+                val notifSource = if (t.source == TransactionSource.WECHAT_CSV) {
+                    TransactionSource.WECHAT_NOTIFICATION.name
+                } else {
+                    TransactionSource.ALIPAY_NOTIFICATION.name
+                }
+                val match = transactionDao.findNotificationMatch(
+                    notifSource, t.type, t.amountCents,
+                    t.transactionTimeMs - windowMs, t.transactionTimeMs + windowMs,
+                )
+                if (match != null) {
+                    val categoryId = classify(t.merchant, t.note)
+                    transactionDao.updateDetail(match.id, t.merchant, t.note, categoryId)
+                    merged++
+                    continue
+                }
+            }
+            // 2) CSV 自身去重（交易单号优先）
             val key = DedupGuard.csvKey(t.source, t.orderId, t.transactionTimeMs, t.amountCents, t.merchant)
             if (transactionDao.countByDedupKey(key) > 0) {
                 duplicated++
@@ -129,7 +150,7 @@ class TransactionRepository @Inject constructor(
             )
             inserted++
         }
-        return CsvImportResult(inserted, duplicated, null)
+        return CsvImportResult(inserted, merged, duplicated, null)
     }
 
     // ---- 观察 ----

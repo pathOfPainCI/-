@@ -33,6 +33,20 @@ interface TransactionDao {
 
     @Query("UPDATE transactions SET categoryId = :categoryId WHERE id = :id")
     suspend fun updateCategory(id: Long, categoryId: Long?)
+
+    /** 找同一笔的通知记录（CSV 导入时合并用）：同来源类型、同金额、时间窗内 */
+    @Query("SELECT * FROM transactions WHERE source = :notifSource AND type = :type AND amountCents = :amountCents AND transactionTime BETWEEN :startMs AND :endMs LIMIT 1")
+    suspend fun findNotificationMatch(
+        notifSource: String,
+        type: TransactionType,
+        amountCents: Long,
+        startMs: Long,
+        endMs: Long,
+    ): TransactionEntity?
+
+    /** 用 CSV 信息补全通知记录（商户/备注/分类），并标记为已核对 */
+    @Query("UPDATE transactions SET merchant = :merchant, note = :note, categoryId = :categoryId, needsReview = 0 WHERE id = :id")
+    suspend fun updateDetail(id: Long, merchant: String?, note: String?, categoryId: Long?)
 }
 
 @Dao

@@ -358,7 +358,7 @@ private fun ImportDialog(
                         if (result.error != null) {
                             "导入失败：" + result.error
                         } else {
-                            "新增 " + result.inserted + " 条，去重跳过 " + result.duplicated + " 条"
+                            "新增 " + result.inserted + " 条，合并通知记录 " + result.merged + " 条，去重跳过 " + result.duplicated + " 条"
                         }
                     )
                 },
