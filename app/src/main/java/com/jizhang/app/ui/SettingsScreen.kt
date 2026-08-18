@@ -25,16 +25,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.jizhang.app.data.SettingsStore
 import com.jizhang.app.data.repo.TransactionRepository
+import com.jizhang.app.util.NotificationAccess
 
 @Composable
 fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var listenerEnabled by remember {
-        mutableStateOf(isListenerEnabled(context))
+        mutableStateOf(NotificationAccess.isEnabled(context))
     }
+    var rawListenerRecord by remember {
+        mutableStateOf(NotificationAccess.rawValue(context))
+    }
+
+    // 从系统授权页返回时自动重新检测
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                listenerEnabled = NotificationAccess.isEnabled(context)
+                rawListenerRecord = NotificationAccess.rawValue(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     var baseUrl by remember { mutableStateOf(viewModel.aiBaseUrl) }
     var model by remember { mutableStateOf(viewModel.aiModel) }
     var apiKey by remember { mutableStateOf("") }
@@ -48,9 +68,23 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
     ) {
         Text("通知监听", style = MaterialTheme.typography.titleMedium)
         Text(
-            text = if (listenerEnabled) "已授权" else "未授权（通知是自动记账的主通道）",
+            text = if (listenerEnabled) "已授权 ✓" else "未授权（通知是自动记账的主通道）",
             color = if (listenerEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
         )
+        if (!listenerEnabled && rawListenerRecord.isNullOrBlank()) {
+            Text(
+                text = "系统记录为空：授权后请完全关闭本 App 再重开，或重启手机。小米设备若开关已开仍显示未授权，请把下方「系统记录」内容发给我。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        if (rawListenerRecord != null) {
+            Text(
+                text = "系统记录：" + rawListenerRecord,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
         Row {
             Button(onClick = {
                 context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -58,7 +92,10 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                 Text("前往授权")
             }
             Spacer(Modifier.padding(start = 8.dp))
-            OutlinedButton(onClick = { listenerEnabled = isListenerEnabled(context) }) {
+            OutlinedButton(onClick = {
+                listenerEnabled = NotificationAccess.isEnabled(context)
+                rawListenerRecord = NotificationAccess.rawValue(context)
+            }) {
                 Text("重新检测")
             }
         }
@@ -118,6 +155,3 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
         )
     }
 }
-
-private fun isListenerEnabled(context: Context): Boolean =
-    NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)

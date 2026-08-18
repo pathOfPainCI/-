@@ -26,14 +26,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.app.NotificationManagerCompat
+import com.jizhang.app.util.NotificationAccess
 
 /** 首次启动引导：隐私说明 → 通知授权 → 自启动/电池白名单（详见设计文档 §13） */
 @Composable
 fun OnboardingScreen(onDone: () -> Unit) {
     val context = LocalContext.current
     var step by rememberSaveable { mutableIntStateOf(0) }
-    var listenerEnabled by remember { mutableStateOf(isListenerEnabled(context)) }
+    var listenerEnabled by remember { mutableStateOf(NotificationAccess.isEnabled(context)) }
 
     Column(
         modifier = Modifier
@@ -104,7 +104,7 @@ private fun StepNotification(
     ) {
         Text("前往系统设置授权")
     }
-    OutlinedButton(onClick = { onChecked(isListenerEnabled(context)) }) {
+    OutlinedButton(onClick = { onChecked(NotificationAccess.isEnabled(context)) }) {
         Text("授权完成，检测一下")
     }
 }
@@ -122,6 +122,3 @@ private fun StepBackground() {
         style = MaterialTheme.typography.bodyLarge,
     )
 }
-
-private fun isListenerEnabled(context: Context): Boolean =
-    NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
