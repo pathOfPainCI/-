@@ -86,7 +86,13 @@ fun TransactionListScreen(
                 modifier = Modifier.weight(1f),
             )
             FilledTonalButton(onClick = {
-                fileLauncher.launch(arrayOf("text/*", "text/comma-separated-values", "application/octet-stream"))
+                fileLauncher.launch(arrayOf(
+                    "text/*",
+                    "text/comma-separated-values",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "application/zip",
+                    "application/octet-stream",
+                ))
             }) {
                 Text("导入 CSV")
             }
