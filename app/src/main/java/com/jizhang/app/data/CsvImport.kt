@@ -17,6 +17,7 @@ object CsvFileReader {
 
     /** 加密压缩包标记（支付宝账单 zip 有密码，需用户先解压） */
     const val ENCRYPTED_ZIP_MARKER = "\u0000ENCRYPTED_ZIP"
+    const val WRONG_PASSWORD_MARKER = "\u0000WRONG_PASSWORD"
 
     /** 检测 zip 传统加密（本地文件头 flags bit 0） */
     fun isEncryptedZip(bytes: ByteArray): Boolean {
@@ -30,10 +31,22 @@ object CsvFileReader {
         return false
     }
 
-    fun readAndDetect(bytes: ByteArray): String {
-        // 0) 加密压缩包（支付宝账单）→ 提示先解压
+    fun readAndDetect(bytes: ByteArray, password: String? = null): String {
+        // 0) 加密压缩包（支付宝账单）→ 无密码提示输入，有密码直接解密
         if (XlsxParser.isZip(bytes) && isEncryptedZip(bytes)) {
-            return ENCRYPTED_ZIP_MARKER
+            if (password.isNullOrEmpty()) return ENCRYPTED_ZIP_MARKER
+            return try {
+                val entries = XlsxParser.readZipEntries(bytes, password)
+                entries.firstOrNull { it.name.endsWith(".csv", ignoreCase = true) }?.let {
+                    return decodeText(it.data)
+                }
+                entries.firstOrNull { it.name.endsWith(".xlsx", ignoreCase = true) }?.let {
+                    return XlsxParser.xlsxToCsv(it.data) ?: "无法解析 xlsx 账单"
+                }
+                "压缩包里没有找到 CSV 或 xlsx 账单文件"
+            } catch (e: ZipPasswordException) {
+                WRONG_PASSWORD_MARKER
+            }
         }
         // 1) zip 容器（微信原始附件：含 csv/xlsx/pdf；或 xlsx 本身）
         if (XlsxParser.isZip(bytes)) {
@@ -85,6 +98,9 @@ object CsvFormatDetector {
                 emptyList(), 0,
                 "账单压缩包已加密：请在手机文件管理里先解压（输入下载账单时设置的那个密码），得到 CSV 文件后再导入",
             )
+        }
+        if (csv == CsvFileReader.WRONG_PASSWORD_MARKER) {
+            return CsvParseResult(emptyList(), 0, "解压密码不正确，请重新输入")
         }
         return when {
             csv.contains("微信支付账单明细") -> WechatCsvParser.parse(csv)

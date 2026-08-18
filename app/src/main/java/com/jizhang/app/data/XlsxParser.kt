@@ -13,21 +13,84 @@ object XlsxParser {
 
     data class ZipEntry(val name: String, val data: ByteArray)
 
-    /** 读取 zip 全部条目（微信压缩包 / xlsx 通用） */
-    fun readZipEntries(bytes: ByteArray): List<ZipEntry> {
-        val result = mutableListOf<ZipEntry>()
-        ZipInputStream(ByteArrayInputStream(bytes)).use { zis ->
-            var entry = zis.nextEntry
-            while (entry != null) {
-                if (!entry.isDirectory) {
-                    result.add(ZipEntry(entry.name, zis.readBytes()))
+    /** 读取 zip 全部条目（微信压缩包 / xlsx / 支付宝加密 zip 通用） */
+    fun readZipEntries(bytes: ByteArray, password: String? = null): List<ZipEntry> {
+        // 用 ZipInputStream 快速失败：无加密条目时走常规路径
+        val plain = mutableListOf<ZipEntry>()
+        var encrypted = false
+        try {
+            ZipInputStream(ByteArrayInputStream(bytes)).use { zis ->
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    if (!entry.isDirectory) {
+                        plain.add(ZipEntry(entry.name, zis.readBytes()))
+                    }
+                    zis.closeEntry()
+                    entry = zis.nextEntry
                 }
-                zis.closeEntry()
-                entry = zis.nextEntry
             }
+            return plain
+        } catch (e: Exception) {
+            encrypted = true
+        }
+        // 有加密条目：手动解析 central directory + ZipCrypto 解密
+        val view = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        var eocd = -1
+        for (i in bytes.size - 22 downTo 0) {
+            if (view.getInt(i) == 0x06054b50) {
+                eocd = i
+                break
+            }
+        }
+        if (eocd < 0) return plain
+        val cdCount = view.getShort(eocd + 10).toInt() and 0xFFFF
+        val cdOffset = view.getInt(eocd + 16)
+        val result = mutableListOf<ZipEntry>()
+        var p = cdOffset
+        for (n in 0 until cdCount) {
+            if (view.getInt(p) != 0x02014b50) break
+            val method = view.getShort(p + 10).toInt() and 0xFFFF
+            val flags = view.getShort(p + 8).toInt() and 0xFFFF
+            val crc = view.getInt(p + 16).toLong() and 0xFFFFFFFFL
+            val compSize = view.getInt(p + 20).toLong().toInt()
+            val nameLen = view.getShort(p + 28).toInt() and 0xFFFF
+            val extraLen = view.getShort(p + 30).toInt() and 0xFFFF
+            val commentLen = view.getShort(p + 32).toInt() and 0xFFFF
+            val localOffset = view.getInt(p + 42)
+            val name = String(bytes, p + 46, nameLen, Charsets.UTF_8)
+
+            if (!name.endsWith("/")) {
+                val lNameLen = view.getShort(localOffset + 26).toInt() and 0xFFFF
+                val lExtraLen = view.getShort(localOffset + 28).toInt() and 0xFFFF
+                val dataStart = localOffset + 30 + lNameLen + lExtraLen
+                if (dataStart + compSize <= bytes.size) {
+                    val raw = bytes.copyOfRange(dataStart, dataStart + compSize)
+                    if (flags and 0x01 != 0) {
+                        // 加密条目：需要密码
+                        if (password.isNullOrEmpty()) continue
+                        val dec = ZipCryptoDecryptor(password.toByteArray(Charsets.UTF_8))
+                        if (raw.size < 12) continue
+                        dec.decrypt(raw, 0, 12) // 12 字节加密头
+                        val plainData = dec.decrypt(raw, 12, raw.size - 12)
+                        // CRC 校验：密码错误时解出的数据 CRC 不匹配
+                        if (crc32Of(plainData) != crc) {
+                            throw ZipPasswordException("解压密码不正确")
+                        }
+                        val content = if (method == 8) inflateRaw(plainData) else plainData
+                        result.add(ZipEntry(name, content))
+                    } else {
+                        val content = if (method == 8) inflateRaw(raw) else raw
+                        result.add(ZipEntry(name, content))
+                    }
+                }
+            }
+            p += 46 + nameLen + extraLen + commentLen
         }
         return result
     }
+
+    private fun inflateRaw(data: ByteArray): ByteArray =
+        java.util.zip.InflaterInputStream(java.io.ByteArrayInputStream(data)).use { it.readBytes() }
 
     /** 是否为 zip 容器（含 xlsx） */
     fun isZip(bytes: ByteArray): Boolean =

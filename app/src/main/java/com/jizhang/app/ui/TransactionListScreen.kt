@@ -216,6 +216,7 @@ fun TransactionListScreen(
         state = importState,
         onConfirm = { importViewModel.confirmImport() },
         onDismiss = { importViewModel.dismiss() },
+        onPasswordSubmit = { uri, pwd -> importViewModel.retryWithPassword(uri, pwd) },
     )
 }
 
@@ -320,9 +321,40 @@ private fun ImportDialog(
     state: ImportState,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    onPasswordSubmit: (Uri, String) -> Unit,
 ) {
     when (state) {
         ImportState.Idle -> Unit
+        is ImportState.PasswordRequired -> {
+            var pwd by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text("账单压缩包已加密") },
+                text = {
+                    Column {
+                        Text("请输入下载账单时设置的解压密码：")
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = pwd,
+                            onValueChange = { pwd = it },
+                            singleLine = true,
+                            label = { Text("解压密码") },
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = { onPasswordSubmit(state.uri, pwd) },
+                        enabled = pwd.isNotBlank(),
+                    ) {
+                        Text("解压导入")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text("取消") }
+                },
+            )
+        }
         is ImportState.Preview -> {
             val parsed = state.parsed
             if (parsed.error != null) {

@@ -22,6 +22,7 @@ sealed interface ImportState {
     data class Preview(val parsed: CsvParseResult) : ImportState
     data class Done(val result: CsvImportResult) : ImportState
     data class Error(val message: String) : ImportState
+    data class PasswordRequired(val uri: Uri) : ImportState
 }
 
 /** CSV 账单导入：选文件 → 探测编码 → 解析预览 → 确认入库（去重兜底） */
@@ -44,6 +45,28 @@ class ImportViewModel @Inject constructor(
                         return@launch
                     }
                 val csv = CsvFileReader.readAndDetect(bytes)
+                if (csv == CsvFileReader.ENCRYPTED_ZIP_MARKER) {
+                    _state.value = ImportState.PasswordRequired(uri)
+                    return@launch
+                }
+                val parsed = CsvFormatDetector.parseAuto(csv)
+                _state.value = ImportState.Preview(parsed)
+            } catch (e: Exception) {
+                _state.value = ImportState.Error(e.message ?: "解析失败")
+            }
+        }
+    }
+
+    /** 用户输入密码后重试（支付宝加密 zip） */
+    fun retryWithPassword(uri: Uri, password: String) {
+        viewModelScope.launch {
+            try {
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: run {
+                        _state.value = ImportState.Error("无法读取文件")
+                        return@launch
+                    }
+                val csv = CsvFileReader.readAndDetect(bytes, password)
                 val parsed = CsvFormatDetector.parseAuto(csv)
                 _state.value = ImportState.Preview(parsed)
             } catch (e: Exception) {
