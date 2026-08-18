@@ -25,6 +25,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE transactionTime >= :start AND transactionTime < :end ORDER BY transactionTime DESC")
     fun observeByRange(start: Long, end: Long): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE merchant LIKE '%' || :q || '%' OR note LIKE '%' || :q || '%' OR CAST(amountCents AS TEXT) LIKE '%' || :q || '%' ORDER BY transactionTime DESC")
+    fun observeSearch(q: String): Flow<List<TransactionEntity>>
+
     @Query("SELECT COALESCE(SUM(amountCents), 0) FROM transactions WHERE type = :typeName AND transactionTime >= :start AND transactionTime < :end")
     suspend fun sumByType(typeName: String, start: Long, end: Long): Long
 

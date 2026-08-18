@@ -17,10 +17,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jizhang.app.data.repo.TransactionUi
 import com.jizhang.app.domain.model.TransactionSource
 import com.jizhang.app.domain.model.TransactionType
+import com.jizhang.app.ui.MainViewModel.RangeMode
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -55,6 +63,7 @@ fun TransactionListScreen(
     val importState by importViewModel.state.collectAsStateWithLifecycle()
 
     var selectedTx by remember { mutableStateOf<TransactionUi?>(null) }
+    var query by remember { mutableStateOf("") }
     val clipboard = LocalClipboardManager.current
 
     // SAF 文件选择：无需存储权限
@@ -68,7 +77,7 @@ fun TransactionListScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -84,18 +93,96 @@ fun TransactionListScreen(
             Spacer(Modifier.width(4.dp))
         }
 
+        // 筛选模式
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FilterChip(
+                selected = viewModel.filterValue.mode == RangeMode.ALL,
+                onClick = { viewModel.setMode(RangeMode.ALL) },
+                label = { Text("全部") },
+            )
+            Spacer(Modifier.width(8.dp))
+            FilterChip(
+                selected = viewModel.filterValue.mode == RangeMode.DAY,
+                onClick = { viewModel.setMode(RangeMode.DAY) },
+                label = { Text("日") },
+            )
+            Spacer(Modifier.width(8.dp))
+            FilterChip(
+                selected = viewModel.filterValue.mode == RangeMode.MONTH,
+                onClick = { viewModel.setMode(RangeMode.MONTH) },
+                label = { Text("月") },
+            )
+            Spacer(Modifier.width(8.dp))
+            FilterChip(
+                selected = viewModel.filterValue.mode == RangeMode.YEAR,
+                onClick = { viewModel.setMode(RangeMode.YEAR) },
+                label = { Text("年") },
+            )
+        }
+
+        // 日期导航 + 标题
+        if (viewModel.filterValue.mode != RangeMode.ALL && query.isBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { viewModel.shift(-1) }) {
+                    Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "上一个")
+                }
+                Text(
+                    text = viewModel.rangeTitle(),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                IconButton(onClick = { viewModel.shift(1) }) {
+                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "下一个")
+                }
+            }
+        }
+
+        // 搜索框
+        OutlinedTextField(
+            value = query,
+            onValueChange = {
+                query = it
+                viewModel.setQuery(it)
+            },
+            placeholder = { Text("搜索商户 / 备注 / 金额") },
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+
+        // 当前范围汇总
+        val expenseCents = transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountCents }
+        val incomeCents = transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amountCents }
+        Text(
+            text = formatCents(expenseCents) + " 支出　" + formatCents(incomeCents) + " 收入　共 " + transactions.size + " 笔",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+
         if (reviewCount > 0) {
             Text(
                 text = "有 $reviewCount 条记录待核对（金额/方向解析不确定）",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             )
         }
         if (transactions.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "暂无记录\n支付后通知将自动记一笔，也可点右上角「导入 CSV」对账",
+                    text = if (query.isNotBlank()) "没有找到匹配的记录" else "暂无记录\n支付后通知将自动记一笔，也可点右上角「导入 CSV」对账",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.outline,
                 )
@@ -126,6 +213,8 @@ fun TransactionListScreen(
     )
 }
 
+private fun formatCents(cents: Long): String = String.format(Locale.US, "¥%.2f", cents / 100.0)
+
 @Composable
 private fun TransactionDetailDialog(
     t: TransactionUi,
@@ -152,7 +241,7 @@ private fun TransactionDetailDialog(
                     color = amountColor,
                 )
                 Spacer(Modifier.height(8.dp))
-                DetailRow("商户", t.merchant ?: "（未识别商户）")
+                DetailRow("商户", t.merchant ?: merchantFallback(t.source))
                 DetailRow("分类", t.categoryName ?: "未分类")
                 DetailRow("时间", formatFullTime(t.transactionTime))
                 DetailRow("来源", sourceName(t.source))
@@ -182,6 +271,13 @@ private fun TransactionDetailDialog(
             }
         },
     )
+}
+
+/** 通知无商户信息时按来源显示平台名 */
+private fun merchantFallback(s: TransactionSource): String = when (s) {
+    TransactionSource.WECHAT_NOTIFICATION, TransactionSource.WECHAT_CSV -> "微信支付"
+    TransactionSource.ALIPAY_NOTIFICATION, TransactionSource.ALIPAY_CSV -> "支付宝"
+    else -> "未知商户"
 }
 
 @Composable
@@ -300,7 +396,7 @@ private fun TransactionRow(t: TransactionUi, onClick: () -> Unit) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = t.merchant ?: "（未识别商户）",
+                text = t.merchant ?: merchantFallback(t.source),
                 style = MaterialTheme.typography.bodyLarge,
             )
             Text(

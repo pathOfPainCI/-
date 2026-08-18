@@ -151,6 +151,34 @@ class TransactionRepository @Inject constructor(
             }
         }
 
+    fun observeRange(start: Long, end: Long): Flow<List<TransactionUi>> =
+        combine(transactionDao.observeByRange(start, end), categoryDao.observeAll()) { txns, cats ->
+            val nameById = cats.associate { it.id to it.name }
+            txns.map { t ->
+                TransactionUi(
+                    id = t.id, amountCents = t.amountCents, type = t.type,
+                    merchant = t.merchant, note = t.note,
+                    categoryName = t.categoryId?.let { nameById[it] },
+                    source = t.source, transactionTime = t.transactionTime,
+                    needsReview = t.needsReview,
+                )
+            }
+        }
+
+    fun searchTransactions(query: String): Flow<List<TransactionUi>> =
+        combine(transactionDao.observeSearch(query), categoryDao.observeAll()) { txns, cats ->
+            val nameById = cats.associate { it.id to it.name }
+            txns.map { t ->
+                TransactionUi(
+                    id = t.id, amountCents = t.amountCents, type = t.type,
+                    merchant = t.merchant, note = t.note,
+                    categoryName = t.categoryId?.let { nameById[it] },
+                    source = t.source, transactionTime = t.transactionTime,
+                    needsReview = t.needsReview,
+                )
+            }
+        }
+
     fun observeNeedsReview(): Flow<List<TransactionUi>> =
         combine(transactionDao.observeNeedsReview(), categoryDao.observeAll()) { txns, cats ->
             val nameById = cats.associate { it.id to it.name }
