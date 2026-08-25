@@ -51,9 +51,13 @@ interface TransactionDao {
         endMs: Long,
     ): TransactionEntity?
 
-    /** 用 CSV 信息补全通知记录（商户/备注/分类），并标记为已核对 */
-    @Query("UPDATE transactions SET merchant = :merchant, note = :note, categoryId = :categoryId, needsReview = 0 WHERE id = :id")
-    suspend fun updateDetail(id: Long, merchant: String?, note: String?, categoryId: Long?)
+    /** 用 CSV 信息补全通知记录（金额/商户/备注/分类），并标记为已核对 */
+    @Query("UPDATE transactions SET amountCents = :amountCents, merchant = :merchant, note = :note, categoryId = :categoryId, needsReview = 0 WHERE id = :id")
+    suspend fun updateDetailFull(id: Long, amountCents: Long, merchant: String?, note: String?, categoryId: Long?)
+
+    /** 找金额解析失败（0 元待核对）的通知记录，CSV 导入时补全 */
+    @Query("SELECT * FROM transactions WHERE source = :notifSource AND needsReview = 1 AND amountCents = 0 AND transactionTime BETWEEN :startMs AND :endMs LIMIT 1")
+    suspend fun findZeroReviewMatch(notifSource: String, startMs: Long, endMs: Long): TransactionEntity?
 
     /** 某时间范围内按分类汇总支出（统计饼图用） */
     @Query("SELECT categoryId, SUM(amountCents) AS total FROM transactions WHERE type = 'EXPENSE' AND transactionTime >= :start AND transactionTime < :end GROUP BY categoryId ORDER BY total DESC")
