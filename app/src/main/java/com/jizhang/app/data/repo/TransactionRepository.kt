@@ -97,6 +97,18 @@ class TransactionRepository @Inject constructor(
         }
         if (transactionDao.countByDedupKey(dedupKey) > 0) return false
 
+        // 反向去重：账单已导入的同笔记录（通知延迟到达时不再重复记账）
+        val windowMs = 5 * 60 * 1000L
+        val csvSource = if (source == TransactionSource.WECHAT_NOTIFICATION) {
+            TransactionSource.WECHAT_CSV.name
+        } else {
+            TransactionSource.ALIPAY_CSV.name
+        }
+        val csvMatch = result.amountCents?.let {
+            transactionDao.findCsvMatch(csvSource, it, postedTimeMs - windowMs, postedTimeMs + windowMs)
+        }
+        if (csvMatch != null) return false
+
         val categoryId = result.amountCents?.let { classify(result.merchant, null) }
 
         transactionDao.insert(

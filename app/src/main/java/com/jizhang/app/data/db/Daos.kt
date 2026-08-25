@@ -59,6 +59,10 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE source = :notifSource AND needsReview = 1 AND amountCents = 0 AND transactionTime BETWEEN :startMs AND :endMs LIMIT 1")
     suspend fun findZeroReviewMatch(notifSource: String, startMs: Long, endMs: Long): TransactionEntity?
 
+    /** 找账单已导入的同笔记录（通知延迟到达时反向去重） */
+    @Query("SELECT * FROM transactions WHERE source = :csvSource AND amountCents = :amountCents AND transactionTime BETWEEN :startMs AND :endMs LIMIT 1")
+    suspend fun findCsvMatch(csvSource: String, amountCents: Long, startMs: Long, endMs: Long): TransactionEntity?
+
     /** 某时间范围内按分类汇总支出（统计饼图用） */
     @Query("SELECT categoryId, SUM(amountCents) AS total FROM transactions WHERE type = 'EXPENSE' AND transactionTime >= :start AND transactionTime < :end GROUP BY categoryId ORDER BY total DESC")
     suspend fun expenseByCategory(start: Long, end: Long): List<CategorySum>
