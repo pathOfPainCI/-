@@ -23,6 +23,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY transactionTime DESC")
     fun observeAll(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions ORDER BY transactionTime DESC")
+    suspend fun getAll(): List<TransactionEntity>
+
     @Query("SELECT * FROM transactions WHERE needsReview = 1 ORDER BY transactionTime DESC")
     fun observeNeedsReview(): Flow<List<TransactionEntity>>
 

@@ -166,6 +166,71 @@ class TransactionRepository @Inject constructor(
         return CsvImportResult(inserted, merged, duplicated, null)
     }
 
+    // ---- 手动记账 ----
+    suspend fun getAllCategoryNames(): List<String> = categoryDao.getAll().map { it.name }
+
+    suspend fun addManual(
+        type: TransactionType,
+        amountCents: Long,
+        categoryName: String?,
+        note: String?,
+    ): Boolean {
+        if (amountCents <= 0) return false
+        val now = System.currentTimeMillis()
+        val key = DedupGuard.manualKey(now, amountCents, note)
+        if (transactionDao.countByDedupKey(key) > 0) return false
+        val categoryId = categoryName?.let { categoryDao.findByName(it)?.id }
+        transactionDao.insert(
+            TransactionEntity(
+                amountCents = amountCents,
+                type = type,
+                merchant = null,
+                note = note,
+                categoryId = categoryId,
+                source = TransactionSource.MANUAL,
+                transactionTime = now,
+                createdAt = now,
+                dedupKey = key,
+                needsReview = false,
+            )
+        )
+        return true
+    }
+
+    // ---- 备份导出 ----
+    suspend fun exportAllCsv(): String {
+        val txns = transactionDao.getAll()
+        val nameById = categoryDao.getAll().associate { it.id to it.name }
+        val sb = StringBuilder()
+        sb.append("时间,类型,金额(元),商户,分类,备注,来源\n")
+        val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        for (t in txns) {
+            val time = java.time.Instant.ofEpochMilli(t.transactionTime)
+                .atZone(java.time.ZoneId.systemDefault()).format(fmt)
+            val type = when (t.type) {
+                TransactionType.EXPENSE -> "支出"
+                TransactionType.INCOME -> "收入"
+                TransactionType.REFUND -> "退款"
+                TransactionType.NEUTRAL -> "中性"
+            }
+            sb.append(escCsv(time)).append(',')
+                .append(escCsv(type)).append(',')
+                .append(String.format(java.util.Locale.US, "%.2f", t.amountCents / 100.0)).append(',')
+                .append(escCsv(t.merchant ?: "")).append(',')
+                .append(escCsv(nameById[t.categoryId] ?: "未分类")).append(',')
+                .append(escCsv(t.note ?: "")).append(',')
+                .append(escCsv(t.source.name)).append("\n")
+        }
+        return sb.toString()
+    }
+
+    private fun escCsv(v: String): String =
+        if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+            "\"" + v.replace("\"", "\"\"") + "\""
+        } else {
+            v
+        }
+
     // ---- 预算 ----
     suspend fun getTotalBudget(month: String): Long? = budgetDao.getTotalBudget(month)
 

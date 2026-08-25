@@ -6,6 +6,7 @@ import com.jizhang.app.data.SettingsStore
 import com.jizhang.app.data.repo.StatsData
 import com.jizhang.app.data.repo.TransactionRepository
 import com.jizhang.app.data.repo.TransactionUi
+import com.jizhang.app.domain.model.TransactionType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import java.time.ZoneId
@@ -67,10 +68,30 @@ class MainViewModel @Inject constructor(
     private val _monthBudget = MutableStateFlow<Long>(0L)
     val monthBudget: StateFlow<Long> = _monthBudget.asStateFlow()
 
+    private val _categories = MutableStateFlow<List<String>>(emptyList())
+    val categories: StateFlow<List<String>> = _categories.asStateFlow()
+
     init {
         refreshStats()
         refreshBudget()
+        loadCategories()
     }
+
+    private fun loadCategories() {
+        viewModelScope.launch {
+            _categories.value = repository.getAllCategoryNames()
+        }
+    }
+
+    /** 手动记账 */
+    fun addManual(type: TransactionType, amountCents: Long, categoryName: String?, note: String) {
+        viewModelScope.launch {
+            repository.addManual(type, amountCents, categoryName, note.takeIf { it.isNotBlank() })
+        }
+    }
+
+    /** 备份导出（返回 CSV 文本） */
+    suspend fun exportCsv(): String = repository.exportAllCsv()
 
     fun setOnboarded(value: Boolean) = settings.setOnboarded(value)
 

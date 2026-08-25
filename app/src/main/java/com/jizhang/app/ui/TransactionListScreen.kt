@@ -21,12 +21,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,6 +67,8 @@ fun TransactionListScreen(
 
     var selectedTx by remember { mutableStateOf<TransactionUi?>(null) }
     var query by remember { mutableStateOf("") }
+    var showManual by remember { mutableStateOf(false) }
+    val categories by viewModel.categories.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
 
     // SAF 文件选择：无需存储权限
@@ -85,6 +90,10 @@ fun TransactionListScreen(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f),
             )
+            FilledTonalButton(onClick = { showManual = true }) {
+                Text("记一笔")
+            }
+            Spacer(Modifier.width(4.dp))
             FilledTonalButton(onClick = {
                 fileLauncher.launch(arrayOf(
                     "text/*",
@@ -94,7 +103,7 @@ fun TransactionListScreen(
                     "application/octet-stream",
                 ))
             }) {
-                Text("导入 CSV")
+                Text("导入")
             }
             Spacer(Modifier.width(4.dp))
         }
@@ -242,6 +251,17 @@ fun TransactionListScreen(
         )
     }
 
+    if (showManual) {
+        ManualDialog(
+            categories = categories,
+            onSave = { type, cents, cat, note ->
+                viewModel.addManual(type, cents, cat, note)
+                showManual = false
+            },
+            onDismiss = { showManual = false },
+        )
+    }
+
     ImportDialog(
         state = importState,
         onConfirm = { importViewModel.confirmImport() },
@@ -251,6 +271,97 @@ fun TransactionListScreen(
 }
 
 private fun formatCents(cents: Long): String = String.format(Locale.US, "¥%.2f", cents / 100.0)
+
+@Composable
+private fun ManualDialog(
+    categories: List<String>,
+    onSave: (TransactionType, Long, String?, String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var isExpense by remember { mutableStateOf(true) }
+    var amount by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var note by remember { mutableStateOf("") }
+    var categoryExpanded by remember { mutableStateOf(false) }
+    val amountCents = ((amount.toDoubleOrNull() ?: 0.0) * 100).toLong()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("记一笔") },
+        text = {
+            Column {
+                Row {
+                    FilterChip(
+                        selected = isExpense,
+                        onClick = { isExpense = true },
+                        label = { Text("支出") },
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    FilterChip(
+                        selected = !isExpense,
+                        onClick = { isExpense = false },
+                        label = { Text("收入") },
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("金额（元）") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                )
+                Spacer(Modifier.height(8.dp))
+                Box {
+                    OutlinedButton(onClick = { categoryExpanded = true }) {
+                        Text(selectedCategory ?: "选择分类（可选）")
+                    }
+                    DropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false },
+                    ) {
+                        categories.forEach { c ->
+                            DropdownMenuItem(
+                                text = { Text(c) },
+                                onClick = {
+                                    selectedCategory = c
+                                    categoryExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("备注（可选）") },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (amountCents > 0) {
+                        onSave(
+                            if (isExpense) TransactionType.EXPENSE else TransactionType.INCOME,
+                            amountCents,
+                            selectedCategory,
+                            note,
+                        )
+                    }
+                },
+                enabled = amountCents > 0,
+            ) {
+                Text("保存")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
+}
 
 @Composable
 private fun TransactionDetailDialog(
@@ -314,6 +425,7 @@ private fun TransactionDetailDialog(
 private fun merchantFallback(s: TransactionSource): String = when (s) {
     TransactionSource.WECHAT_NOTIFICATION, TransactionSource.WECHAT_CSV -> "微信支付"
     TransactionSource.ALIPAY_NOTIFICATION, TransactionSource.ALIPAY_CSV -> "支付宝"
+    TransactionSource.MANUAL -> "手动记账"
     else -> "未知商户"
 }
 

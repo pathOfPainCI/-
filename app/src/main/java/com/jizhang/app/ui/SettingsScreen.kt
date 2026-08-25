@@ -16,13 +16,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -178,6 +182,43 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                     Text("清除")
                 }
             }
+        }
+        Spacer(Modifier.height(16.dp))
+
+        Text("数据备份", style = MaterialTheme.typography.titleMedium)
+        var exported by remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
+        val exportLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("text/csv"),
+        ) { uri ->
+            uri?.let {
+                scope.launch {
+                    try {
+                        context.contentResolver.openOutputStream(it)?.use { os ->
+                            os.write(viewModel.exportCsv().toByteArray())
+                        }
+                        exported = true
+                    } catch (e: Exception) {
+                        exported = false
+                    }
+                }
+            }
+        }
+        Row {
+            OutlinedButton(onClick = {
+                exported = false
+                val name = "记账备份-" + java.time.LocalDate.now().toString().replace("-", "") + ".csv"
+                exportLauncher.launch(name)
+            }) {
+                Text("备份导出 CSV")
+            }
+        }
+        if (exported) {
+            Text(
+                text = "已导出，请妥善保存该文件",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
         Spacer(Modifier.height(16.dp))
 
