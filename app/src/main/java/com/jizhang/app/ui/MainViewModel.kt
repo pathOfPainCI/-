@@ -3,9 +3,11 @@ package com.jizhang.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jizhang.app.data.SettingsStore
+import com.jizhang.app.data.db.RuleEntity
 import com.jizhang.app.data.repo.StatsData
 import com.jizhang.app.data.repo.TransactionRepository
 import com.jizhang.app.data.repo.TransactionUi
+import com.jizhang.app.domain.model.RuleMatchType
 import com.jizhang.app.domain.model.TransactionType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
@@ -71,6 +73,9 @@ class MainViewModel @Inject constructor(
     private val _categories = MutableStateFlow<List<String>>(emptyList())
     val categories: StateFlow<List<String>> = _categories.asStateFlow()
 
+    val rules: StateFlow<List<RuleEntity>> = repository.observeRules()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         refreshStats()
         refreshBudget()
@@ -92,6 +97,19 @@ class MainViewModel @Inject constructor(
 
     /** 备份导出（返回 CSV 文本） */
     suspend fun exportCsv(): String = repository.exportAllCsv()
+
+    /** 分类规则 */
+    fun addRule(categoryName: String, matchType: RuleMatchType, pattern: String) {
+        viewModelScope.launch {
+            repository.addRule(categoryName, matchType, pattern)
+        }
+    }
+
+    fun deleteRule(id: Long) {
+        viewModelScope.launch {
+            repository.deleteRule(id)
+        }
+    }
 
     fun setOnboarded(value: Boolean) = settings.setOnboarded(value)
 

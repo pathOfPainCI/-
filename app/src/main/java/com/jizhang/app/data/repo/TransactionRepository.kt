@@ -7,11 +7,13 @@ import com.jizhang.app.data.db.BudgetEntity
 import com.jizhang.app.data.db.CategoryDao
 import com.jizhang.app.data.db.CategorySum
 import com.jizhang.app.data.db.RuleDao
+import com.jizhang.app.data.db.RuleEntity
 import com.jizhang.app.data.db.TransactionDao
 import com.jizhang.app.data.db.TransactionEntity
 import com.jizhang.app.domain.classify.AiClassifier
 import com.jizhang.app.domain.classify.Categorizer
 import com.jizhang.app.domain.dedup.DedupGuard
+import com.jizhang.app.domain.model.RuleMatchType
 import com.jizhang.app.domain.model.TransactionSource
 import com.jizhang.app.domain.model.TransactionType
 import com.jizhang.app.domain.parser.CsvParseResult
@@ -230,6 +232,24 @@ class TransactionRepository @Inject constructor(
         } else {
             v
         }
+
+    // ---- 分类规则 ----
+    fun observeRules(): Flow<List<RuleEntity>> = ruleDao.observeAll()
+
+    suspend fun addRule(categoryName: String, matchType: RuleMatchType, pattern: String) {
+        val maxPriority = ruleDao.getAll().maxOfOrNull { it.priority } ?: 0
+        ruleDao.insert(
+            RuleEntity(
+                categoryId = null,
+                categoryName = categoryName,
+                matchType = matchType,
+                pattern = pattern,
+                priority = maxPriority + 1,
+            )
+        )
+    }
+
+    suspend fun deleteRule(id: Long) = ruleDao.deleteById(id)
 
     // ---- 预算 ----
     suspend fun getTotalBudget(month: String): Long? = budgetDao.getTotalBudget(month)

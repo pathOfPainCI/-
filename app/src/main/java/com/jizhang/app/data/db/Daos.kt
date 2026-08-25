@@ -92,6 +92,9 @@ interface RuleDao {
     @Update suspend fun update(rule: RuleEntity)
 
     @Delete suspend fun delete(rule: RuleEntity)
+
+    @Query("DELETE FROM rules WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }
 
 @Dao

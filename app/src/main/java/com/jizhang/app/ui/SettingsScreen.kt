@@ -11,11 +11,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -34,8 +39,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jizhang.app.data.SettingsStore
+import com.jizhang.app.data.db.RuleEntity
 import com.jizhang.app.data.repo.TransactionRepository
+import com.jizhang.app.domain.model.RuleMatchType
 import com.jizhang.app.util.NotificationAccess
 
 @Composable
@@ -185,6 +193,29 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.height(16.dp))
 
+        Text("分类规则", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "命中规则时自动归类（如 蜜雪冰城 → 餐饮），后添加的规则优先。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline,
+        )
+        val rules by viewModel.rules.collectAsStateWithLifecycle()
+        val categories by viewModel.categories.collectAsStateWithLifecycle()
+        var showRules by remember { mutableStateOf(false) }
+        OutlinedButton(onClick = { showRules = true }) {
+            Text("管理规则（当前 " + rules.size + " 条）")
+        }
+        if (showRules) {
+            RulesDialog(
+                rules = rules,
+                categories = categories,
+                onAdd = { cat, type, pattern -> viewModel.addRule(cat, type, pattern) },
+                onDelete = { id -> viewModel.deleteRule(id) },
+                onDismiss = { showRules = false },
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+
         Text("数据备份", style = MaterialTheme.typography.titleMedium)
         var exported by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
@@ -239,6 +270,129 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.outline,
         )
     }
+}
+
+private fun matchTypeName(t: RuleMatchType): String = when (t) {
+    RuleMatchType.CONTAINS -> "包含"
+    RuleMatchType.MERCHANT_EXACT -> "完全匹配"
+    RuleMatchType.REGEX -> "正则"
+}
+
+@Composable
+private fun RulesDialog(
+    rules: List<RuleEntity>,
+    categories: List<String>,
+    onAdd: (String, RuleMatchType, String) -> Unit,
+    onDelete: (Long) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var pattern by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var matchType by remember { mutableStateOf(RuleMatchType.CONTAINS) }
+    var catExpanded by remember { mutableStateOf(false) }
+    var typeExpanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("分类规则") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Text("新增规则", style = MaterialTheme.typography.titleSmall)
+                Row {
+                    OutlinedButton(onClick = { catExpanded = true }) {
+                        Text(selectedCategory ?: "分类")
+                    }
+                    DropdownMenu(
+                        expanded = catExpanded,
+                        onDismissRequest = { catExpanded = false },
+                    ) {
+                        categories.forEach { c ->
+                            DropdownMenuItem(
+                                text = { Text(c) },
+                                onClick = {
+                                    selectedCategory = c
+                                    catExpanded = false
+                                },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.padding(start = 8.dp))
+                    OutlinedButton(onClick = { typeExpanded = true }) {
+                        Text(matchTypeName(matchType))
+                    }
+                    DropdownMenu(
+                        expanded = typeExpanded,
+                        onDismissRequest = { typeExpanded = false },
+                    ) {
+                        RuleMatchType.entries.forEach { t ->
+                            DropdownMenuItem(
+                                text = { Text(matchTypeName(t)) },
+                                onClick = {
+                                    matchType = t
+                                    typeExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = pattern,
+                    onValueChange = { pattern = it },
+                    label = { Text("匹配词（如：瑞幸）") },
+                    singleLine = true,
+                )
+                Button(
+                    onClick = {
+                        val cat = selectedCategory
+                        if (cat != null && pattern.isNotBlank()) {
+                            onAdd(cat, matchType, pattern.trim())
+                            pattern = ""
+                        }
+                    },
+                    enabled = selectedCategory != null && pattern.isNotBlank(),
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Text("添加")
+                }
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
+                Text("已有规则（后添加的优先）", style = MaterialTheme.typography.titleSmall)
+                if (rules.isEmpty()) {
+                    Text(
+                        "暂无规则",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+                rules.forEach { r ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = r.categoryName + " · " + matchTypeName(r.matchType) + "：「" + r.pattern + "」",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { onDelete(r.id) }) {
+                            Text("删除")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+    )
 }
 
 private fun appVersion(context: Context): String {
