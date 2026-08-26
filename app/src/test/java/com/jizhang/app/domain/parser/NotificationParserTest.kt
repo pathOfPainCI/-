@@ -2,6 +2,7 @@ package com.jizhang.app.domain.parser
 
 import com.jizhang.app.domain.model.TransactionType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
