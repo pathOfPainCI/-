@@ -32,8 +32,12 @@ class NotificationMonitorService : NotificationListenerService() {
             return
         }
 
+        val title = extractTitle(sbn.notification)
         val text = extractText(sbn.notification)
         if (text.isNullOrBlank()) return
+
+        // 支付特征过滤：聊天消息/普通推送不记（防误记）
+        if (!NotificationParser.isPaymentLike(title, text)) return
 
         val parseResult = NotificationParser.parse(text)
         // 噪声通知（积分/还款/验证码等）直接丢弃
@@ -49,6 +53,9 @@ class NotificationMonitorService : NotificationListenerService() {
         // 国产 ROM 杀后台导致系统解绑：申请重绑（文档 §8/§10 第二层应对）
         requestRebind(ComponentName(this, NotificationMonitorService::class.java))
     }
+
+    private fun extractTitle(notification: Notification): String? =
+        notification.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
 
     /** 合并通知全部文本字段（金额/商户常散落在不同字段） */
     private fun extractText(notification: Notification): String? {

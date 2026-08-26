@@ -104,6 +104,22 @@ class NotificationParserTest {
         assertEquals(TransactionType.REFUND, r.type)
     }
 
+    // ---- 支付特征识别（防聊天消息误记） ----
+    @Test
+    fun chatMessageWithNumberIsNotPayment() {
+        assertFalse(NotificationParser.isPaymentLike("张三", "15"))
+        assertFalse(NotificationParser.isPaymentLike("李四", "明天3点见"))
+        assertFalse(NotificationParser.isPaymentLike("王五", "我给你转账了50"))
+    }
+
+    @Test
+    fun paymentNotificationIsPayment() {
+        assertTrue(NotificationParser.isPaymentLike("微信支付", "你已付款"))
+        assertTrue(NotificationParser.isPaymentLike("微信支付凭证", "交易成功"))
+        assertTrue(NotificationParser.isPaymentLike("联系人", "向瑞幸付款 ¥15.00"))
+        assertTrue(NotificationParser.isPaymentLike("联系人", "收款到账15.00元"))
+    }
+
     // ---- 噪声/失败 ----
     @Test
     fun pointsNotificationIsNoise() {

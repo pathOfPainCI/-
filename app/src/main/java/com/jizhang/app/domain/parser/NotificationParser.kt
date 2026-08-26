@@ -74,6 +74,22 @@ object NotificationParser {
         return NotificationParseResult(amountCents, direction, merchant, reason, refund)
     }
 
+    /**
+     * 判断通知是否为支付类（防止聊天消息被误记）。
+     * - 标题特征：微信支付/支付宝/支付凭证/收款/到账/转账/红包/账单/退款 等
+     * - 或 文本强金额特征：¥/￥/xx元
+     * 聊天消息（标题=联系人名，正文无金额符号）→ 不是支付类 → 丢弃。
+     */
+    fun isPaymentLike(title: String?, text: String): Boolean {
+        val t = title ?: ""
+        if (listOf("微信支付", "支付宝", "支付凭证", "收款", "到账", "转账", "红包", "账单", "退款", "支付成功", "付款").any { t.contains(it) }) {
+            return true
+        }
+        if (text.contains("¥") || text.contains("￥")) return true
+        if (Regex("""\d+(\.\d{1,2})?\s*元""").containsMatchIn(text)) return true
+        return false
+    }
+
     fun detectDirection(text: String): Direction {
         // 支出强关键词优先（"付款"与"收款"同现时按支出，如"向XX付款"）
         for (w in EXPENSE_WORDS) if (text.contains(w)) return Direction.EXPENSE
