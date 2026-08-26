@@ -49,7 +49,27 @@ fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
-        Text("本月概览", style = MaterialTheme.typography.titleLarge)
+        // 月份切换
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.IconButton(onClick = { viewModel.shiftStatsMonth(-1) }) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Filled.KeyboardArrowLeft,
+                    contentDescription = "上月",
+                )
+            }
+            Text(
+                text = viewModel.statsMonthTitle(),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+            androidx.compose.material3.IconButton(onClick = { viewModel.shiftStatsMonth(1) }) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Filled.KeyboardArrowRight,
+                    contentDescription = "下月",
+                )
+            }
+        }
         Spacer(Modifier.height(12.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.padding(16.dp)) {
@@ -93,7 +113,7 @@ fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
         } else {
             PieChart(slices)
             Spacer(Modifier.height(12.dp))
-            Legend(slices)
+            Legend(slices, stats?.categoryBudgets ?: emptyMap())
         }
 
         Spacer(Modifier.height(24.dp))
@@ -147,7 +167,7 @@ private fun PieChart(slices: List<Pair<String, Long>>) {
 }
 
 @Composable
-private fun Legend(slices: List<Pair<String, Long>>) {
+private fun Legend(slices: List<Pair<String, Long>>, budgets: Map<String, Long>) {
     val total = slices.sumOf { it.second }.coerceAtLeast(1)
     Column {
         slices.forEachIndexed { i, (name, amount) ->
@@ -168,12 +188,29 @@ private fun Legend(slices: List<Pair<String, Long>>) {
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = format(amount) + "  " +
-                        String.format(Locale.US, "%.1f%%", amount.toFloat() / total * 100f),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
-                )
+                val budget = budgets[name]
+                if (budget != null && budget > 0) {
+                    if (amount > budget) {
+                        Text(
+                            text = "超支 " + format(amount - budget),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFD32F2F),
+                        )
+                    } else {
+                        Text(
+                            text = format(amount) + " / " + format(budget),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
+                } else {
+                    Text(
+                        text = format(amount) + "  " +
+                            String.format(Locale.US, "%.1f%%", amount.toFloat() / total * 100f),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
             }
         }
     }

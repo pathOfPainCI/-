@@ -1,5 +1,17 @@
 package com.jizhang.app.data.repo
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import com.jizhang.app.MainActivity
 import com.jizhang.app.data.SettingsStore
 import com.jizhang.app.data.ai.DeepSeekClient
 import com.jizhang.app.data.db.BudgetDao
@@ -18,6 +30,9 @@ import com.jizhang.app.domain.model.TransactionSource
 import com.jizhang.app.domain.model.TransactionType
 import com.jizhang.app.domain.parser.CsvParseResult
 import com.jizhang.app.domain.parser.NotificationParseResult
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -39,15 +54,19 @@ data class CsvImportResult(val inserted: Int, val merged: Int, val duplicated: I
 
 data class MonthPoint(val label: String, val expense: Long, val income: Long)
 
+data class CategoryBudgetItem(val id: Long, val categoryName: String, val amountCents: Long)
+
 data class StatsData(
     val expense: Long,
     val income: Long,
     val categorySlices: List<Pair<String, Long>>, // 分类名 to 金额（降序）
+    val categoryBudgets: Map<String, Long>,       // 分类名 to 预算金额（分）
     val trend: List<MonthPoint>,                  // 近 N 个月
 )
 
 @Singleton
 class TransactionRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val transactionDao: TransactionDao,
     private val categoryDao: CategoryDao,
     private val ruleDao: RuleDao,
@@ -125,6 +144,7 @@ class TransactionRepository @Inject constructor(
                 needsReview = result.needsReview,
             )
         )
+        checkBudgetAlert()
         return true
     }
 
@@ -189,6 +209,7 @@ class TransactionRepository @Inject constructor(
             )
             inserted++
         }
+        checkBudgetAlert()
         return CsvImportResult(inserted, merged, duplicated, null)
     }
 
@@ -220,6 +241,7 @@ class TransactionRepository @Inject constructor(
                 needsReview = false,
             )
         )
+        checkBudgetAlert()
         return true
     }
 
@@ -300,6 +322,99 @@ class TransactionRepository @Inject constructor(
 
     suspend fun clearTotalBudget(month: String) = budgetDao.deleteTotalBudget(month)
 
+    suspend fun getCategoryBudgets(month: String): List<BudgetEntity> =
+        budgetDao.getByMonth(month).filter { it.categoryId != null }
+
+    suspend fun setCategoryBudget(categoryId: Long, month: String, amountCents: Long) {
+        budgetDao.deleteCategoryBudget(categoryId, month)
+        budgetDao.insert(BudgetEntity(categoryId = categoryId, amountCents = amountCents, month = month))
+    }
+
+    suspend fun deleteBudget(id: Long) = budgetDao.deleteById(id)
+
+    suspend fun categoryIdByName(name: String): Long? = categoryDao.findByName(name)?.id
+
+    suspend fun categoryBudgetItems(month: String): List<CategoryBudgetItem> {
+        val nameById = categoryDao.getAll().associate { it.id to it.name }
+        return budgetDao.getByMonth(month).mapNotNull { b ->
+            b.categoryId?.let { id -> nameById[id]?.let { CategoryBudgetItem(b.id, it, b.amountCents) } }
+        }
+    }
+
+    // ---- 超支提醒 ----
+    private suspend fun checkBudgetAlert() {
+        try {
+            val now = LocalDate.now()
+            val month = now.toString().substring(0, 7)
+            val start = now.withDayOfMonth(1).atStartOfDay()
+                .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val end = now.withDayOfMonth(1).plusMonths(1).atStartOfDay()
+                .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val expense = transactionDao.sumByType(TransactionType.EXPENSE.name, start, end)
+            val prefs = context.getSharedPreferences("budget_alerts", Context.MODE_PRIVATE)
+            val nameById = categoryDao.getAll().associate { it.id to it.name }
+
+            // 总额预算
+            val totalBudget = budgetDao.getTotalBudget(month)
+            if (totalBudget != null && expense > totalBudget) {
+                val key = "total_" + month
+                if (!prefs.getBoolean(key, false)) {
+                    postBudgetNotification(
+                        "本月已超支",
+                        "已支出 " + formatYuan(expense) + "，超出预算 " + formatYuan(expense - totalBudget),
+                    )
+                    prefs.edit().putBoolean(key, true).apply()
+                }
+            }
+            // 分类预算
+            for (b in budgetDao.getByMonth(month)) {
+                val catId = b.categoryId ?: continue
+                val catExpense = transactionDao.sumByCategory(catId, start, end)
+                if (catExpense > b.amountCents) {
+                    val key = "cat_" + catId + "_" + month
+                    if (!prefs.getBoolean(key, false)) {
+                        val catName = nameById[catId] ?: "分类"
+                        postBudgetNotification(
+                            catName + " 预算已超支",
+                            "已支出 " + formatYuan(catExpense) + "，超出 " + formatYuan(catExpense - b.amountCents),
+                        )
+                        prefs.edit().putBoolean(key, true).apply()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // 提醒失败不影响记账
+        }
+    }
+
+    private fun postBudgetNotification(title: String, text: String) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.createNotificationChannel(
+            NotificationChannel("budget", "预算提醒", NotificationManager.IMPORTANCE_DEFAULT)
+        )
+        val intent = Intent(context, MainActivity::class.java)
+        val pi = PendingIntent.getActivity(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(context, "budget")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(1001, notification)
+    }
+
+    private fun formatYuan(cents: Long): String =
+        String.format(java.util.Locale.US, "¥%.2f", cents / 100.0)
+
     // ---- 观察 ----
     fun observeTransactions(): Flow<List<TransactionUi>> =
         combine(transactionDao.observeAll(), categoryDao.observeAll()) { txns, cats ->
@@ -361,13 +476,13 @@ class TransactionRepository @Inject constructor(
             }
         }
 
-    /** 统计页数据：本月收支 + 分类占比 + 近 N 个月趋势 */
-    suspend fun loadStats(months: Int): StatsData {
-        val today = java.time.LocalDate.now()
-        val monthStart = today.withDayOfMonth(1).atStartOfDay()
-            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val monthEnd = today.withDayOfMonth(1).plusMonths(1).atStartOfDay()
-            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+    /** 统计页数据：某月收支 + 分类占比 + 趋势 + 分类预算（monthOffset: 0=本月，-1=上月） */
+    suspend fun loadStats(months: Int, monthOffset: Int = 0): StatsData {
+        val base = LocalDate.now().withDayOfMonth(1).plusMonths(monthOffset.toLong())
+        val monthStart = base.atStartOfDay()
+            .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val monthEnd = base.plusMonths(1).atStartOfDay()
+            .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         val expense = transactionDao.sumByType(TransactionType.EXPENSE.name, monthStart, monthEnd)
         val income = transactionDao.sumByType(TransactionType.INCOME.name, monthStart, monthEnd)
@@ -376,11 +491,17 @@ class TransactionRepository @Inject constructor(
         val nameById = categoryDao.getAll().associate { it.id to it.name }
         val slices = sums.map { (nameById[it.categoryId] ?: "未分类") to it.total }
 
+        // 分类预算（所选月份）
+        val monthKey = base.toString().substring(0, 7)
+        val budgetMap = budgetDao.getByMonth(monthKey)
+            .mapNotNull { b -> b.categoryId?.let { id -> nameById[id]?.let { it to b.amountCents } } }
+            .toMap()
+
         val trend = mutableListOf<MonthPoint>()
         for (i in months - 1 downTo 0) {
-            val d = today.withDayOfMonth(1).minusMonths(i.toLong())
-            val start = d.atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-            val end = d.plusMonths(1).atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val d = base.minusMonths(i.toLong())
+            val start = d.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val end = d.plusMonths(1).atStartOfDay().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
             trend.add(
                 MonthPoint(
                     label = d.monthValue.toString() + "月",
@@ -389,7 +510,7 @@ class TransactionRepository @Inject constructor(
                 )
             )
         }
-        return StatsData(expense, income, slices, trend)
+        return StatsData(expense, income, slices, budgetMap, trend)
     }
 
     suspend fun monthSummary(monthStart: Long, monthEnd: Long): MonthSummary {

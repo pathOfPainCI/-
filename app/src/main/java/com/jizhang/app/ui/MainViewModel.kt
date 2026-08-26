@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jizhang.app.data.SettingsStore
 import com.jizhang.app.data.db.RuleEntity
+import com.jizhang.app.data.repo.CategoryBudgetItem
 import com.jizhang.app.data.repo.StatsData
 import com.jizhang.app.data.repo.TransactionRepository
 import com.jizhang.app.data.repo.TransactionUi
@@ -79,10 +80,38 @@ class MainViewModel @Inject constructor(
     val rules: StateFlow<List<RuleEntity>> = repository.observeRules()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val _categoryBudgets = MutableStateFlow<List<CategoryBudgetItem>>(emptyList())
+    val categoryBudgets: StateFlow<List<CategoryBudgetItem>> = _categoryBudgets.asStateFlow()
+
     init {
         refreshStats()
         refreshBudget()
         loadCategories()
+        refreshCategoryBudgets()
+    }
+
+    fun refreshCategoryBudgets() {
+        viewModelScope.launch {
+            _categoryBudgets.value = repository.categoryBudgetItems(currentMonth())
+        }
+    }
+
+    /** 按分类名设置本月分类预算 */
+    fun addCategoryBudgetByName(name: String, amountCents: Long) {
+        viewModelScope.launch {
+            val id = repository.categoryIdByName(name)
+            if (id != null) {
+                repository.setCategoryBudget(id, currentMonth(), amountCents)
+                refreshCategoryBudgets()
+            }
+        }
+    }
+
+    fun deleteBudget(id: Long) {
+        viewModelScope.launch {
+            repository.deleteBudget(id)
+            refreshCategoryBudgets()
+        }
     }
 
     private fun loadCategories() {
@@ -230,9 +259,24 @@ class MainViewModel @Inject constructor(
         }
     }
 
+
+
+    private val _statsMonthOffset = MutableStateFlow(0)
+    val statsMonthOffset: StateFlow<Int> = _statsMonthOffset.asStateFlow()
+
+    fun shiftStatsMonth(delta: Int) {
+        _statsMonthOffset.update { it + delta }
+        refreshStats()
+    }
+
+    fun statsMonthTitle(): String {
+        val base = java.time.LocalDate.now().withDayOfMonth(1).plusMonths(_statsMonthOffset.value.toLong())
+        return base.year.toString() + "年" + base.monthValue + "月"
+    }
+
     fun refreshStats() {
         viewModelScope.launch {
-            _stats.value = repository.loadStats(6)
+            _stats.value = repository.loadStats(6, _statsMonthOffset.value)
         }
     }
 

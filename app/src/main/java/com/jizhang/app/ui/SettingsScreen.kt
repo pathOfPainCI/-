@@ -214,6 +214,19 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                 onDismiss = { showRules = false },
             )
         }
+        Spacer(Modifier.height(12.dp))
+
+        // 分类预算入口
+        var showCatBudget by remember { mutableStateOf(false) }
+        OutlinedButton(onClick = { showCatBudget = true }) {
+            Text("分类预算")
+        }
+        if (showCatBudget) {
+            CategoryBudgetDialog(
+                categories = categories,
+                onDismiss = { showCatBudget = false },
+            )
+        }
         Spacer(Modifier.height(16.dp))
 
         Text("数据备份", style = MaterialTheme.typography.titleMedium)
@@ -270,6 +283,103 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.outline,
         )
     }
+}
+
+@Composable
+private fun CategoryBudgetDialog(
+    categories: List<String>,
+    onDismiss: () -> Unit,
+) {
+    var amount by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var catExpanded by remember { mutableStateOf(false) }
+    val amountCents = ((amount.toDoubleOrNull() ?: 0.0) * 100).toLong()
+    val viewModel = androidx.hilt.navigation.compose.hiltViewModel<MainViewModel>()
+    val budgets by viewModel.categoryBudgets.collectAsStateWithLifecycle()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("分类预算（本月）") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Row {
+                    OutlinedButton(onClick = { catExpanded = true }) {
+                        Text(selectedCategory ?: "选择分类")
+                    }
+                    DropdownMenu(
+                        expanded = catExpanded,
+                        onDismissRequest = { catExpanded = false },
+                    ) {
+                        categories.forEach { c ->
+                            DropdownMenuItem(
+                                text = { Text(c) },
+                                onClick = {
+                                    selectedCategory = c
+                                    catExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("预算金额（元）") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                )
+                Button(
+                    onClick = {
+                        val cat = selectedCategory
+                        if (cat != null && amountCents > 0) {
+                            viewModel.addCategoryBudgetByName(cat, amountCents)
+                            amount = ""
+                        }
+                    },
+                    enabled = selectedCategory != null && amountCents > 0,
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Text("保存")
+                }
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
+                Text("已有分类预算", style = MaterialTheme.typography.titleSmall)
+                if (budgets.isEmpty()) {
+                    Text(
+                        "暂无分类预算",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+                budgets.forEach { b ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = b.categoryName + "：" + String.format(java.util.Locale.US, "¥%.2f", b.amountCents / 100.0),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { viewModel.deleteBudget(b.id) }) {
+                            Text("删除")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+    )
 }
 
 private fun matchTypeName(t: RuleMatchType): String = when (t) {

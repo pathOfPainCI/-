@@ -73,6 +73,10 @@ interface TransactionDao {
     /** 某时间范围内按分类汇总支出（统计饼图用） */
     @Query("SELECT categoryId, SUM(amountCents) AS total FROM transactions WHERE type = 'EXPENSE' AND transactionTime >= :start AND transactionTime < :end GROUP BY categoryId ORDER BY total DESC")
     suspend fun expenseByCategory(start: Long, end: Long): List<CategorySum>
+
+    /** 某分类在时间范围内的支出（分类预算用） */
+    @Query("SELECT COALESCE(SUM(amountCents), 0) FROM transactions WHERE type = 'EXPENSE' AND categoryId = :categoryId AND transactionTime >= :start AND transactionTime < :end")
+    suspend fun sumByCategory(categoryId: Long, start: Long, end: Long): Long
 }
 
 @Dao
@@ -128,4 +132,11 @@ interface BudgetDao {
 
     @Query("DELETE FROM budgets WHERE categoryId IS NULL AND month = :month")
     suspend fun deleteTotalBudget(month: String)
+
+    /** 某月的全部预算（总额 + 分类） */
+    @Query("SELECT * FROM budgets WHERE month = :month")
+    suspend fun getByMonth(month: String): List<BudgetEntity>
+
+    @Query("DELETE FROM budgets WHERE categoryId = :categoryId AND month = :month")
+    suspend fun deleteCategoryBudget(categoryId: Long, month: String)
 }
