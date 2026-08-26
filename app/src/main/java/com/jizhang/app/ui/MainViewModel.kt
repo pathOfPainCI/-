@@ -92,7 +92,11 @@ class MainViewModel @Inject constructor(
 
     fun refreshCategoryBudgets() {
         viewModelScope.launch {
-            _categoryBudgets.value = repository.categoryBudgetItems(currentMonth())
+            try {
+                _categoryBudgets.value = repository.categoryBudgetItems(currentMonth())
+            } catch (e: Exception) {
+                _categoryBudgets.value = emptyList()
+            }
         }
     }
 
@@ -116,7 +120,11 @@ class MainViewModel @Inject constructor(
 
     private fun loadCategories() {
         viewModelScope.launch {
-            _categories.value = repository.getAllCategoryNames()
+            try {
+                _categories.value = repository.getAllCategoryNames()
+            } catch (e: Exception) {
+                _categories.value = emptyList()
+            }
         }
     }
 
@@ -248,7 +256,11 @@ class MainViewModel @Inject constructor(
 
     fun refreshBudget() {
         viewModelScope.launch {
-            _monthBudget.value = repository.getTotalBudget(currentMonth()) ?: 0L
+            try {
+                _monthBudget.value = repository.getTotalBudget(currentMonth()) ?: 0L
+            } catch (e: Exception) {
+                _monthBudget.value = 0L
+            }
         }
     }
 
@@ -286,7 +298,11 @@ class MainViewModel @Inject constructor(
 
     fun refreshStats() {
         viewModelScope.launch {
-            _stats.value = repository.loadStats(6, _statsMonthOffset.value)
+            try {
+                _stats.value = repository.loadStats(6, _statsMonthOffset.value)
+            } catch (e: Exception) {
+                _stats.value = null
+            }
         }
     }
 

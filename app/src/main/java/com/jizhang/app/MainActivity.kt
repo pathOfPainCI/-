@@ -17,16 +17,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        setContent {
+            AutoBookTheme {
+                AppRoot()
+            }
+        }
         // Android 13+ 请求通知权限（预算超支提醒用）
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 100)
-        }
-        setContent {
-            AutoBookTheme {
-                AppRoot()
-            }
         }
     }
 }
