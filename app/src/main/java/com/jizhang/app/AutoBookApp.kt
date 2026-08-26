@@ -18,10 +18,7 @@ class AutoBookApp : Application() {
                 val sw = StringWriter()
                 throwable.printStackTrace(PrintWriter(sw))
                 val file = File(filesDir, "crash.log")
-                val text = Date().toString() + " | " + thread.name + "
-" + sw.toString() + "
-====
-"
+                val text = Date().toString() + " | " + thread.name + "\n" + sw.toString() + "\n====\n"
                 file.appendText(text)
             } catch (e: Exception) {
                 // 日志写入失败不影响崩溃处理
