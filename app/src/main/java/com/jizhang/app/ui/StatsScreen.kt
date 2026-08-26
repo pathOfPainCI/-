@@ -125,6 +125,8 @@ fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                     graphicsLayer.record {
                         this@drawWithContent.drawContent()
                     }
+                    // 把记录的内容绘制到屏幕（漏掉会整块空白）
+                    drawLayer(graphicsLayer)
                 },
         ) {
         Card(modifier = Modifier.fillMaxWidth()) {
