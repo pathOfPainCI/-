@@ -130,6 +130,10 @@ class MainViewModel @Inject constructor(
     /** 备份导出（返回 CSV 文本） */
     suspend fun exportCsv(): String = repository.exportAllCsv()
 
+    /** 恢复备份（解析结果入库） */
+    suspend fun restoreBackup(parsed: com.jizhang.app.domain.parser.CsvParseResult): com.jizhang.app.data.repo.CsvImportResult =
+        repository.importCsv(parsed)
+
     /** 分类规则 */
     fun addRule(categoryName: String, matchType: RuleMatchType, pattern: String) {
         viewModelScope.launch {

@@ -264,6 +264,52 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.primary,
             )
         }
+        Spacer(Modifier.height(8.dp))
+        var restoreResult by remember { mutableStateOf<String?>(null) }
+        val restoreLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument(),
+        ) { uri ->
+            uri?.let {
+                scope.launch {
+                    restoreResult = try {
+                        val bytes = context.contentResolver.openInputStream(it)?.use { r -> r.readBytes() }
+                        if (bytes != null) {
+                            val csv = com.jizhang.app.data.CsvFileReader.readAndDetect(bytes)
+                            val parsed = com.jizhang.app.data.CsvFormatDetector.parseAuto(csv)
+                            if (parsed.error != null) {
+                                "恢复失败：" + parsed.error
+                            } else {
+                                val result = viewModel.restoreBackup(parsed)
+                                "恢复完成：新增 " + result.inserted + " 条，去重跳过 " + result.duplicated + " 条"
+                            }
+                        } else {
+                            "无法读取文件"
+                        }
+                    } catch (e: Exception) {
+                        "恢复失败：" + (e.message ?: "未知错误")
+                    }
+                }
+            }
+        }
+        Row {
+            OutlinedButton(onClick = {
+                restoreResult = null
+                restoreLauncher.launch(arrayOf("text/*", "text/comma-separated-values", "application/octet-stream"))
+            }) {
+                Text("恢复备份")
+            }
+        }
+        if (restoreResult != null) {
+            Text(
+                text = restoreResult!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (restoreResult!!.startsWith("恢复完成")) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+            )
+        }
         Spacer(Modifier.height(16.dp))
 
         OutlinedButton(onClick = { viewModel.setOnboarded(false) }) {

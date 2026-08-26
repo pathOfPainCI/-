@@ -17,6 +17,7 @@ data class CsvTransaction(
     val note: String?,
     val orderId: String?,       // 交易单号（去重锚点，按字符串处理）
     val source: TransactionSource,
+    val categoryName: String? = null, // 备份恢复时保留原分类
 )
 
 data class CsvParseResult(

@@ -25,6 +25,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun budgetDao(): BudgetDao
 
     companion object {
+        @Volatile private var instance: AppDatabase? = null
+
+        /** 单例（小组件等非 Hilt 环境使用） */
+        fun getInstance(context: Context): AppDatabase =
+            instance ?: synchronized(this) {
+                instance ?: build(context).also { instance = it }
+            }
+
         fun build(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "autobook.db")
                 .addCallback(SEED_CALLBACK)

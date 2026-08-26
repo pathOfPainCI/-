@@ -1,6 +1,7 @@
 package com.jizhang.app.data
 
 import com.jizhang.app.domain.parser.AlipayCsvParser
+import com.jizhang.app.domain.parser.BackupCsvParser
 import com.jizhang.app.domain.parser.CsvParseResult
 import com.jizhang.app.domain.parser.WechatCsvParser
 import java.nio.ByteBuffer
@@ -101,6 +102,10 @@ object CsvFormatDetector {
         }
         if (csv == CsvFileReader.WRONG_PASSWORD_MARKER) {
             return CsvParseResult(emptyList(), 0, "解压密码不正确，请重新输入")
+        }
+        // 本 App 备份文件（表头首列"时间"）
+        if (csv.trimStart().startsWith("时间,") || csv.trimStart().startsWith("时间，")) {
+            return BackupCsvParser.parse(csv)
         }
         // 支付宝「记账本」导出（非交易账单）
         if (csv.contains("记录时间") && csv.contains("收支类型")) {

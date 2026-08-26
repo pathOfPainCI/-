@@ -192,7 +192,9 @@ class TransactionRepository @Inject constructor(
                 duplicated++
                 continue
             }
-            val categoryId = classify(t.merchant, t.note)
+            // 备份恢复：优先保留原分类，其次走分类引擎
+            val categoryId = t.categoryName?.let { categoryDao.findByName(it)?.id }
+                ?: classify(t.merchant, t.note)
             transactionDao.insert(
                 TransactionEntity(
                     amountCents = t.amountCents,
@@ -344,6 +346,7 @@ class TransactionRepository @Inject constructor(
     // ---- 超支提醒 ----
     private suspend fun checkBudgetAlert() {
         try {
+            com.jizhang.app.widget.BudgetWidgetProvider.refresh(context)
             val now = LocalDate.now()
             val month = now.toString().substring(0, 7)
             val start = now.withDayOfMonth(1).atStartOfDay()
