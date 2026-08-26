@@ -29,6 +29,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE needsReview = 1 ORDER BY transactionTime DESC")
     fun observeNeedsReview(): Flow<List<TransactionEntity>>
 
+    @Query("DELETE FROM transactions WHERE needsReview = 1")
+    suspend fun deleteAllReview()
+
     @Query("SELECT * FROM transactions WHERE transactionTime >= :start AND transactionTime < :end ORDER BY transactionTime DESC")
     fun observeByRange(start: Long, end: Long): Flow<List<TransactionEntity>>
 

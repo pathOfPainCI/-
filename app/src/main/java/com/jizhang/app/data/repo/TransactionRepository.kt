@@ -301,6 +301,8 @@ class TransactionRepository @Inject constructor(
 
     suspend fun deleteTransaction(id: Long) = transactionDao.deleteById(id)
 
+    suspend fun deleteAllReview() = transactionDao.deleteAllReview()
+
     /** 编辑/补录记录（待核对可直接改金额/类型/商户/分类/备注） */
     suspend fun updateTransaction(
         id: Long,

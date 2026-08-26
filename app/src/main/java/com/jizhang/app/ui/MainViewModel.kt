@@ -153,6 +153,12 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun deleteAllReview() {
+        viewModelScope.launch {
+            repository.deleteAllReview()
+        }
+    }
+
     fun updateTransaction(
         id: Long,
         amountCents: Long,

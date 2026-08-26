@@ -231,6 +231,43 @@ fun TransactionListScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             )
         }
+
+        // 待核对模式：一键清空
+        if (viewModel.filterValue.reviewOnly && transactions.isNotEmpty()) {
+            var confirmClear by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                androidx.compose.material3.TextButton(
+                    onClick = { confirmClear = true },
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Text("清空全部待核对（" + transactions.size + " 条）")
+                }
+            }
+            if (confirmClear) {
+                AlertDialog(
+                    onDismissRequest = { confirmClear = false },
+                    title = { Text("清空全部待核对？") },
+                    text = { Text("将删除所有待核对记录（" + transactions.size + " 条）。已确认的账不受影响。") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            viewModel.deleteAllReview()
+                            confirmClear = false
+                        }) {
+                            Text("清空")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmClear = false }) { Text("取消") }
+                    },
+                )
+            }
+        }
         if (transactions.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(

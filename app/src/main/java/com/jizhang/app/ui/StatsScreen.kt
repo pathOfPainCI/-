@@ -5,6 +5,14 @@ import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.layer.ExperimentalGraphicsLayerApi
+import androidx.compose.ui.graphics.layer.rememberGraphicsLayer
+import androidx.compose.ui.graphics.toImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,10 +49,33 @@ private val PIE_PALETTE = listOf(
     Color(0xFF3949AB), Color(0xFF00897B), Color(0xFFF06292), Color(0xFF757575),
 )
 
+@OptIn(ExperimentalGraphicsLayerApi::class)
 @Composable
 fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.refreshStats() }
+
+    val graphicsLayer = rememberGraphicsLayer()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var exported by remember { mutableStateOf(false) }
+    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("image/png"),
+    ) { uri ->
+        uri?.let {
+            scope.launch {
+                try {
+                    val bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
+                    context.contentResolver.openOutputStream(it)?.use { os ->
+                        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, os)
+                    }
+                    exported = true
+                } catch (e: Exception) {
+                    exported = false
+                }
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -52,7 +83,7 @@ fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
-        // 月份切换
+        // 月份切换 + 导出
         Row(verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.IconButton(onClick = { viewModel.shiftStatsMonth(-1) }) {
                 androidx.compose.material3.Icon(
@@ -72,8 +103,30 @@ fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                     contentDescription = "下月",
                 )
             }
+            androidx.compose.material3.TextButton(onClick = {
+                exported = false
+                exportLauncher.launch("统计-" + viewModel.statsMonthTitle().replace("年", "-").replace("月", "") + ".png")
+            }) {
+                Text("导出")
+            }
+        }
+        if (exported) {
+            Text(
+                text = "已导出图片",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
         Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawWithContent {
+                    graphicsLayer.record {
+                        this@drawWithContent.drawContent()
+                    }
+                },
+        ) {
         Card(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.padding(16.dp)) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -145,6 +198,7 @@ fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                 )
                 Text(" 收入", style = MaterialTheme.typography.bodySmall)
             }
+        }
         }
     }
 }
