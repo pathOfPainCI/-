@@ -73,6 +73,8 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
     var model by remember { mutableStateOf(viewModel.aiModel) }
     var apiKey by remember { mutableStateOf("") }
     var saved by remember { mutableStateOf(false) }
+    var testing by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = modifier
@@ -163,8 +165,6 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                 Text("保存 AI 设置")
             }
             Spacer(Modifier.padding(start = 8.dp))
-            var testing by remember { mutableStateOf(false) }
-            var testResult by remember { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
             OutlinedButton(
                 onClick = {
