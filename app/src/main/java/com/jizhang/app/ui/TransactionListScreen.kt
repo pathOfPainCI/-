@@ -248,6 +248,10 @@ fun TransactionListScreen(
             onCopy = {
                 clipboard.setText(AnnotatedString(tx.note ?: ""))
             },
+            onDelete = {
+                viewModel.deleteTransaction(tx.id)
+                selectedTx = null
+            },
         )
     }
 
@@ -368,6 +372,7 @@ private fun TransactionDetailDialog(
     t: TransactionUi,
     onDismiss: () -> Unit,
     onCopy: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val amountColor = when (t.type) {
         TransactionType.EXPENSE -> Color(0xFFD32F2F)
@@ -414,8 +419,18 @@ private fun TransactionDetailDialog(
             TextButton(onClick = onDismiss) { Text("关闭") }
         },
         dismissButton = {
-            if (t.note != null) {
-                TextButton(onClick = onCopy) { Text("复制原文") }
+            Row {
+                if (t.note != null) {
+                    TextButton(onClick = onCopy) { Text("复制") }
+                }
+                TextButton(
+                    onClick = onDelete,
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Text("删除")
+                }
             }
         },
     )

@@ -51,13 +51,16 @@ interface TransactionDao {
         endMs: Long,
     ): TransactionEntity?
 
-    /** 用 CSV 信息补全通知记录（金额/商户/备注/分类），并标记为已核对 */
-    @Query("UPDATE transactions SET amountCents = :amountCents, merchant = :merchant, note = :note, categoryId = :categoryId, needsReview = 0 WHERE id = :id")
-    suspend fun updateDetailFull(id: Long, amountCents: Long, merchant: String?, note: String?, categoryId: Long?)
+    /** 用 CSV 信息补全通知记录（金额/类型/商户/备注/分类），并标记为已核对 */
+    @Query("UPDATE transactions SET amountCents = :amountCents, type = :type, merchant = :merchant, note = :note, categoryId = :categoryId, needsReview = 0 WHERE id = :id")
+    suspend fun updateDetailFull(id: Long, amountCents: Long, type: TransactionType, merchant: String?, note: String?, categoryId: Long?)
 
-    /** 找金额解析失败（0 元待核对）的通知记录，CSV 导入时补全 */
-    @Query("SELECT * FROM transactions WHERE source = :notifSource AND needsReview = 1 AND amountCents = 0 AND transactionTime BETWEEN :startMs AND :endMs LIMIT 1")
-    suspend fun findZeroReviewMatch(notifSource: String, startMs: Long, endMs: Long): TransactionEntity?
+    /** 找时间窗内最近的待核对通知记录（金额解析失败或方向无法判定），CSV 导入时补全 */
+    @Query("SELECT * FROM transactions WHERE source = :notifSource AND needsReview = 1 AND transactionTime BETWEEN :startMs AND :endMs ORDER BY ABS(transactionTime - :midMs) LIMIT 1")
+    suspend fun findNearestReviewMatch(notifSource: String, startMs: Long, endMs: Long, midMs: Long): TransactionEntity?
+
+    @Query("DELETE FROM transactions WHERE id = :id")
+    suspend fun deleteById(id: Long)
 
     /** 找账单已导入的同笔记录（通知延迟到达时反向去重） */
     @Query("SELECT * FROM transactions WHERE source = :csvSource AND amountCents = :amountCents AND transactionTime BETWEEN :startMs AND :endMs LIMIT 1")

@@ -149,18 +149,19 @@ class TransactionRepository @Inject constructor(
                 )
                 if (match != null) {
                     val categoryId = classify(t.merchant, t.note)
-                    transactionDao.updateDetailFull(match.id, t.amountCents, t.merchant, t.note, categoryId)
+                    transactionDao.updateDetailFull(match.id, t.amountCents, t.type, t.merchant, t.note, categoryId)
                     merged++
                     continue
                 }
-                // 1.5) 金额解析失败（0 元待核对）的通知记录：用时间窗匹配并补全
-                val zeroMatch = transactionDao.findZeroReviewMatch(
+                // 1.5) 时间窗内最近的待核对通知记录（金额失败或方向未定）：补全
+                val reviewMatch = transactionDao.findNearestReviewMatch(
                     notifSource,
                     t.transactionTimeMs - windowMs, t.transactionTimeMs + windowMs,
+                    t.transactionTimeMs,
                 )
-                if (zeroMatch != null) {
+                if (reviewMatch != null) {
                     val categoryId = classify(t.merchant, t.note)
-                    transactionDao.updateDetailFull(zeroMatch.id, t.amountCents, t.merchant, t.note, categoryId)
+                    transactionDao.updateDetailFull(reviewMatch.id, t.amountCents, t.type, t.merchant, t.note, categoryId)
                     merged++
                     continue
                 }
@@ -273,6 +274,8 @@ class TransactionRepository @Inject constructor(
     }
 
     suspend fun deleteRule(id: Long) = ruleDao.deleteById(id)
+
+    suspend fun deleteTransaction(id: Long) = transactionDao.deleteById(id)
 
     // ---- 预算 ----
     suspend fun getTotalBudget(month: String): Long? = budgetDao.getTotalBudget(month)

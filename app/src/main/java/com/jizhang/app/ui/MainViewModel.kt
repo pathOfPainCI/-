@@ -111,6 +111,12 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun deleteTransaction(id: Long) {
+        viewModelScope.launch {
+            repository.deleteTransaction(id)
+        }
+    }
+
     fun setOnboarded(value: Boolean) = settings.setOnboarded(value)
 
     fun saveAiSettings(baseUrl: String, model: String, apiKey: String) {
