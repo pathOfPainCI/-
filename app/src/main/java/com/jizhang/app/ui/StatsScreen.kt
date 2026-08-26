@@ -10,7 +10,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.ExperimentalGraphicsLayerApi
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -51,7 +50,6 @@ private val PIE_PALETTE = listOf(
     Color(0xFF3949AB), Color(0xFF00897B), Color(0xFFF06292), Color(0xFF757575),
 )
 
-@OptIn(ExperimentalGraphicsLayerApi::class)
 @Composable
 fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
