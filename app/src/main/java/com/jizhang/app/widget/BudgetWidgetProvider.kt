@@ -30,23 +30,25 @@ class BudgetWidgetProvider : AppWidgetProvider() {
                 val end = now.withDayOfMonth(1).plusMonths(1).atStartOfDay()
                     .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-                val expense = db.transactionDao().sumByType(TransactionType.EXPENSE.name, start, end)
-                val budget = db.budgetDao().getTotalBudget(month) ?: 0L
+                kotlinx.coroutines.runBlocking {
+                    val expense = db.transactionDao().sumByType(TransactionType.EXPENSE.name, start, end)
+                    val budget = db.budgetDao().getTotalBudget(month) ?: 0L
 
-                val views = RemoteViews(context.packageName, R.layout.widget_budget)
-                views.setTextViewText(R.id.widget_title, "本月预算")
-                views.setTextViewText(R.id.widget_expense, "本月支出 " + formatYuan(expense))
-                views.setTextViewText(
-                    R.id.widget_budget,
-                    if (budget > 0) "预算 " + formatYuan(budget) else "未设预算（设置页可添加）",
-                )
-                val ratio = if (budget > 0) {
-                    ((expense.toFloat() / budget) * 100).toInt().coerceIn(0, 100)
-                } else {
-                    0
+                    val views = RemoteViews(context.packageName, R.layout.widget_budget)
+                    views.setTextViewText(R.id.widget_title, "本月预算")
+                    views.setTextViewText(R.id.widget_expense, "本月支出 " + formatYuan(expense))
+                    views.setTextViewText(
+                        R.id.widget_budget,
+                        if (budget > 0) "预算 " + formatYuan(budget) else "未设预算（设置页可添加）",
+                    )
+                    val ratio = if (budget > 0) {
+                        ((expense.toFloat() / budget) * 100).toInt().coerceIn(0, 100)
+                    } else {
+                        0
+                    }
+                    views.setProgressBar(R.id.widget_progress, 100, ratio, false)
+                    appWidgetManager.updateAppWidget(appWidgetIds, views)
                 }
-                views.setProgressBar(R.id.widget_progress, 100, ratio, false)
-                appWidgetManager.updateAppWidget(appWidgetIds, views)
             } catch (e: Exception) {
                 // 小组件更新失败不打扰
             }
