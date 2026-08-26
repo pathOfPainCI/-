@@ -9,10 +9,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
@@ -56,7 +52,6 @@ fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.refreshStats() }
 
-    val graphicsLayer = rememberGraphicsLayer()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var exported by remember { mutableStateOf(false) }
@@ -66,11 +61,21 @@ fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
         uri?.let {
             scope.launch {
                 try {
-                    val bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
-                    context.contentResolver.openOutputStream(it)?.use { os ->
-                        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, os)
+                    // 整屏截图（内容区域，不含状态栏）
+                    val view = (context as? android.app.Activity)
+                        ?.findViewById<android.view.View>(android.R.id.content)
+                    if (view != null) {
+                        val bitmap = android.graphics.Bitmap.createBitmap(
+                            view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888,
+                        )
+                        view.draw(android.graphics.Canvas(bitmap))
+                        context.contentResolver.openOutputStream(it)?.use { os ->
+                            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, os)
+                        }
+                        exported = true
+                    } else {
+                        exported = false
                     }
-                    exported = true
                 } catch (e: Exception) {
                     exported = false
                 }
@@ -119,17 +124,6 @@ fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
             )
         }
         Spacer(Modifier.height(12.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .drawWithContent {
-                    graphicsLayer.record {
-                        this@drawWithContent.drawContent()
-                    }
-                    // 把记录的内容绘制到屏幕（漏掉会整块空白）
-                    drawLayer(graphicsLayer)
-                },
-        ) {
         Card(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.padding(16.dp)) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -201,7 +195,6 @@ fun StatsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                 )
                 Text(" 收入", style = MaterialTheme.typography.bodySmall)
             }
-        }
         }
     }
 }
