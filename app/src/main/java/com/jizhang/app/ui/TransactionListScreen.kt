@@ -66,6 +66,7 @@ fun TransactionListScreen(
     val importState by importViewModel.state.collectAsStateWithLifecycle()
 
     var selectedTx by remember { mutableStateOf<TransactionUi?>(null) }
+    var editingTx by remember { mutableStateOf<TransactionUi?>(null) }
     var query by remember { mutableStateOf("") }
     var showManual by remember { mutableStateOf(false) }
     val categories by viewModel.categories.collectAsStateWithLifecycle()
@@ -138,10 +139,16 @@ fun TransactionListScreen(
                 onClick = { viewModel.setMode(RangeMode.YEAR) },
                 label = { Text("年") },
             )
+            Spacer(Modifier.width(8.dp))
+            FilterChip(
+                selected = viewModel.filterValue.reviewOnly,
+                onClick = { viewModel.setReviewOnly(!viewModel.filterValue.reviewOnly) },
+                label = { Text("待核对") },
+            )
         }
 
         // 日期导航 + 标题
-        if (viewModel.filterValue.mode != RangeMode.ALL && query.isBlank()) {
+        if (!viewModel.filterValue.reviewOnly && viewModel.filterValue.mode != RangeMode.ALL && query.isBlank()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -248,10 +255,26 @@ fun TransactionListScreen(
             onCopy = {
                 clipboard.setText(AnnotatedString(tx.note ?: ""))
             },
+            onEdit = {
+                editingTx = tx
+                selectedTx = null
+            },
             onDelete = {
                 viewModel.deleteTransaction(tx.id)
                 selectedTx = null
             },
+        )
+    }
+
+    editingTx?.let { tx ->
+        EditTransactionDialog(
+            t = tx,
+            categories = categories,
+            onSave = { cents, type, merchant, cat, note ->
+                viewModel.updateTransaction(tx.id, cents, type, merchant, cat, note)
+                editingTx = null
+            },
+            onDismiss = { editingTx = null },
         )
     }
 
@@ -275,6 +298,123 @@ fun TransactionListScreen(
 }
 
 private fun formatCents(cents: Long): String = String.format(Locale.US, "¥%.2f", cents / 100.0)
+
+@Composable
+private fun EditTransactionDialog(
+    t: TransactionUi,
+    categories: List<String>,
+    onSave: (Long, TransactionType, String?, String?, String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var amount by remember { mutableStateOf(String.format(Locale.US, "%.2f", t.amountCents / 100.0)) }
+    var type by remember { mutableStateOf(t.type) }
+    var merchant by remember { mutableStateOf(t.merchant ?: "") }
+    var categoryName by remember { mutableStateOf(t.categoryName ?: "") }
+    var note by remember { mutableStateOf(t.note ?: "") }
+    var catExpanded by remember { mutableStateOf(false) }
+    var typeExpanded by remember { mutableStateOf(false) }
+    val amountCents = ((amount.toDoubleOrNull() ?: 0.0) * 100).toLong()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("编辑记录") },
+        text = {
+            Column {
+                Row {
+                    OutlinedButton(onClick = { typeExpanded = true }) {
+                        Text(typeName(type))
+                    }
+                    DropdownMenu(
+                        expanded = typeExpanded,
+                        onDismissRequest = { typeExpanded = false },
+                    ) {
+                        TransactionType.entries
+                            .filter { it != TransactionType.NEUTRAL }
+                            .forEach { t2 ->
+                                DropdownMenuItem(
+                                    text = { Text(typeName(t2)) },
+                                    onClick = {
+                                        type = t2
+                                        typeExpanded = false
+                                    },
+                                )
+                            }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("金额（元）") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = merchant,
+                    onValueChange = { merchant = it },
+                    label = { Text("商户（可选）") },
+                    singleLine = true,
+                )
+                Spacer(Modifier.height(8.dp))
+                Box {
+                    OutlinedButton(onClick = { catExpanded = true }) {
+                        Text(categoryName.ifBlank { "选择分类（可选）" })
+                    }
+                    DropdownMenu(
+                        expanded = catExpanded,
+                        onDismissRequest = { catExpanded = false },
+                    ) {
+                        categories.forEach { c ->
+                            DropdownMenuItem(
+                                text = { Text(c) },
+                                onClick = {
+                                    categoryName = c
+                                    catExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("备注（可选）") },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (amountCents > 0) {
+                        onSave(
+                            amountCents,
+                            type,
+                            merchant.trim().ifBlank { null },
+                            categoryName.ifBlank { null },
+                            note.trim().ifBlank { null },
+                        )
+                    }
+                },
+                enabled = amountCents > 0,
+            ) {
+                Text("保存")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
+}
+
+private fun typeName(t: TransactionType): String = when (t) {
+    TransactionType.EXPENSE -> "支出"
+    TransactionType.INCOME -> "收入"
+    TransactionType.REFUND -> "退款"
+    TransactionType.NEUTRAL -> "中性"
+}
 
 @Composable
 private fun ManualDialog(
@@ -372,6 +512,7 @@ private fun TransactionDetailDialog(
     t: TransactionUi,
     onDismiss: () -> Unit,
     onCopy: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val amountColor = when (t.type) {
@@ -416,7 +557,10 @@ private fun TransactionDetailDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭") }
+            Row {
+                TextButton(onClick = onEdit) { Text("编辑") }
+                TextButton(onClick = onDismiss) { Text("关闭") }
+            }
         },
         dismissButton = {
             Row {

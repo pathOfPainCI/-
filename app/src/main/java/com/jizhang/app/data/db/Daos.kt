@@ -62,6 +62,10 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    /** 编辑/补录记录（待核对补全用） */
+    @Query("UPDATE transactions SET amountCents = :amountCents, type = :type, merchant = :merchant, note = :note, categoryId = :categoryId, needsReview = 0 WHERE id = :id")
+    suspend fun updateFull(id: Long, amountCents: Long, type: TransactionType, merchant: String?, note: String?, categoryId: Long?)
+
     /** 找账单已导入的同笔记录（通知延迟到达时反向去重） */
     @Query("SELECT * FROM transactions WHERE source = :csvSource AND amountCents = :amountCents AND transactionTime BETWEEN :startMs AND :endMs LIMIT 1")
     suspend fun findCsvMatch(csvSource: String, amountCents: Long, startMs: Long, endMs: Long): TransactionEntity?

@@ -15,8 +15,8 @@ android {
         applicationId = "com.jizhang.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 19
-        versionName = "0.8.0"
+        versionCode = 20
+        versionName = "0.8.1"
     }
 
     // 签名密钥从环境变量读取：CI 由 Secrets 注入；本地构建时手动设置同名变量。

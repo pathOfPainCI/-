@@ -277,6 +277,19 @@ class TransactionRepository @Inject constructor(
 
     suspend fun deleteTransaction(id: Long) = transactionDao.deleteById(id)
 
+    /** 编辑/补录记录（待核对可直接改金额/类型/商户/分类/备注） */
+    suspend fun updateTransaction(
+        id: Long,
+        amountCents: Long,
+        type: TransactionType,
+        merchant: String?,
+        categoryName: String?,
+        note: String?,
+    ) {
+        val categoryId = categoryName?.let { categoryDao.findByName(it)?.id }
+        transactionDao.updateFull(id, amountCents, type, merchant, note, categoryId)
+    }
+
     // ---- 预算 ----
     suspend fun getTotalBudget(month: String): Long? = budgetDao.getTotalBudget(month)
 

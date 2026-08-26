@@ -39,16 +39,19 @@ class MainViewModel @Inject constructor(
         val monthOffset: Int = 0,
         val yearOffset: Int = 0,
         val query: String = "",
+        val reviewOnly: Boolean = false,
     )
 
     private val filter = MutableStateFlow(FilterState())
 
     val transactions: StateFlow<List<TransactionUi>> = filter.flatMapLatest { f ->
-        if (f.query.isNotBlank()) {
-            repository.searchTransactions(f.query.trim())
-        } else {
-            val range = rangeOf(f)
-            repository.observeRange(range.first, range.second)
+        when {
+            f.reviewOnly -> repository.observeNeedsReview()
+            f.query.isNotBlank() -> repository.searchTransactions(f.query.trim())
+            else -> {
+                val range = rangeOf(f)
+                repository.observeRange(range.first, range.second)
+            }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -117,6 +120,19 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun updateTransaction(
+        id: Long,
+        amountCents: Long,
+        type: TransactionType,
+        merchant: String?,
+        categoryName: String?,
+        note: String?,
+    ) {
+        viewModelScope.launch {
+            repository.updateTransaction(id, amountCents, type, merchant, categoryName, note)
+        }
+    }
+
     fun setOnboarded(value: Boolean) = settings.setOnboarded(value)
 
     fun saveAiSettings(baseUrl: String, model: String, apiKey: String) {
@@ -148,6 +164,8 @@ class MainViewModel @Inject constructor(
     val filterValue: FilterState get() = filter.value
 
     fun setQuery(q: String) = filter.update { it.copy(query = q) }
+
+    fun setReviewOnly(v: Boolean) = filter.update { it.copy(reviewOnly = v) }
 
     /** 当前筛选范围的标题，如 "全部记录" / "8月18日" / "2026年8月" / "2026年" */
     fun rangeTitle(f: FilterState = filter.value): String {
