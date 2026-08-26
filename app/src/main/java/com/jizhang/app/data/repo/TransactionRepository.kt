@@ -527,6 +527,21 @@ class TransactionRepository @Inject constructor(
 
     data class MonthSummary(val expense: Long, val income: Long)
 
+    /** 测试 AI 连接（返回诊断文字） */
+    suspend fun testAi(): String {
+        if (!settings.aiEnabled) return "未配置 API Key（在下方填写后保存）"
+        return try {
+            val result = currentAi()?.classify("瑞幸咖啡测试", null)
+            if (result != null) {
+                "AI 连接正常 ✓ 测试返回分类：「" + result + "」"
+            } else {
+                "AI 连接正常，但未返回有效分类（可能网络或响应异常）"
+            }
+        } catch (e: Exception) {
+            "AI 连接失败：" + (e.message ?: "未知错误")
+        }
+    }
+
     private suspend fun classify(merchant: String?, note: String?): Long? {
         val rules = ruleDao.getAll().map { r ->
             com.jizhang.app.domain.model.Rule(

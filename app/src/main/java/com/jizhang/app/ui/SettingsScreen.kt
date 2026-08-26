@@ -138,23 +138,70 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
         OutlinedTextField(
             value = apiKey,
             onValueChange = { apiKey = it },
-            label = { Text("API Key（Keystore 加密存储）") },
+            label = {
+                Text(
+                    if (viewModel.aiKeyConfigured) {
+                        "API Key 已配置（尾号 " + viewModel.aiKeyTail + "），留空保存则保持不变"
+                    } else {
+                        "API Key（Keystore 加密存储）"
+                    }
+                )
+            },
+            placeholder = { Text(if (viewModel.aiKeyConfigured) "输入新 Key 可替换" else "sk- 开头") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
         )
-        Button(
-            onClick = {
-                viewModel.saveAiSettings(baseUrl, model, apiKey)
-                saved = true
-            },
-            modifier = Modifier.padding(top = 8.dp),
-        ) {
-            Text("保存 AI 设置")
+        Row {
+            Button(
+                onClick = {
+                    viewModel.saveAiSettings(baseUrl, model, apiKey)
+                    saved = true
+                },
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text("保存 AI 设置")
+            }
+            Spacer(Modifier.padding(start = 8.dp))
+            var testing by remember { mutableStateOf(false) }
+            var testResult by remember { mutableStateOf<String?>(null) }
+            val scope = rememberCoroutineScope()
+            OutlinedButton(
+                onClick = {
+                    testing = true
+                    testResult = null
+                    scope.launch {
+                        testResult = viewModel.testAi()
+                        testing = false
+                    }
+                },
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(if (testing) "测试中..." else "测试 AI 连接")
+            }
+        }
+        if (testResult != null) {
+            Text(
+                text = testResult!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (testResult!!.contains("正常")) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+            )
         }
         if (saved) {
-            Text("已保存", color = MaterialTheme.colorScheme.primary)
+            Text(
+                text = "已保存（Key 留空则保留原值）",
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
+        Text(
+            "AI 作用：规则没覆盖的商户自动分类（如 蜜雪冰城→餐饮），结果在明细页商户名旁显示；同一商户只调用一次。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline,
+        )
         Spacer(Modifier.height(16.dp))
 
         Text("月度预算", style = MaterialTheme.typography.titleMedium)

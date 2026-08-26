@@ -65,6 +65,10 @@ class MainViewModel @Inject constructor(
     val aiBaseUrl: String get() = settings.aiBaseUrl
     val aiModel: String get() = settings.aiModel
 
+    /** 是否已配置 API Key（不回显明文，只显示尾号） */
+    val aiKeyConfigured: Boolean get() = settings.aiApiKey.isNotBlank()
+    val aiKeyTail: String get() = settings.aiApiKey.takeLast(4)
+
     private val _summary = MutableStateFlow<TransactionRepository.MonthSummary?>(null)
     val summary: StateFlow<TransactionRepository.MonthSummary?> = _summary.asStateFlow()
 
@@ -185,8 +189,14 @@ class MainViewModel @Inject constructor(
     fun saveAiSettings(baseUrl: String, model: String, apiKey: String) {
         settings.aiBaseUrl = baseUrl.trim()
         settings.aiModel = model.trim()
-        settings.aiApiKey = apiKey.trim()
+        // 输入框为空时保留已保存的 Key（防止误清空）
+        if (apiKey.trim().isNotEmpty()) {
+            settings.aiApiKey = apiKey.trim()
+        }
     }
+
+    /** 测试 AI 连接：返回结果文字 */
+    suspend fun testAi(): String = repository.testAi()
 
     // ---- 筛选控制 ----
     fun setMode(mode: RangeMode) = filter.update { it.copy(mode = mode) }
