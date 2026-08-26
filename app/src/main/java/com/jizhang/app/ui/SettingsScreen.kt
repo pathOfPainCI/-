@@ -312,6 +312,27 @@ fun SettingsScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.height(16.dp))
 
+        Text("帮助与诊断", style = MaterialTheme.typography.titleMedium)
+        var crashLog by remember { mutableStateOf<String?>(null) }
+        OutlinedButton(onClick = {
+            crashLog = try {
+                val f = java.io.File(context.filesDir, "crash.log")
+                if (f.exists()) f.readText().takeLast(4000) else "暂无崩溃记录"
+            } catch (e: Exception) {
+                "读取失败"
+            }
+        }) {
+            Text("查看崩溃日志")
+        }
+        if (crashLog != null) {
+            Text(
+                text = crashLog!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+
         OutlinedButton(onClick = { viewModel.setOnboarded(false) }) {
             Text("重新打开引导页")
         }
